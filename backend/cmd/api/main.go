@@ -8,10 +8,14 @@ import (
 	"github.com/edgar-lins/obrapro/internal/handler"
 	"github.com/edgar-lins/obrapro/internal/repository"
 	"github.com/edgar-lins/obrapro/internal/service"
+	"github.com/edgar-lins/obrapro/pkg/utils"
 	"github.com/go-chi/chi"
 )
 
 func main() {
+	utils.InitLogger()
+	utils.Log.Info("starting ObraPro API")
+
 	r := chi.NewRouter()
 
 	db := database.NewConnection()
