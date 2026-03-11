@@ -19,6 +19,13 @@ func NewRouter() http.Handler {
 	calcService := service.NewCalculateService(projectRepo)
 	calcHandler := handler.NewCalculateHandler(calcService)
 
+	userRepo := repository.NewUserRepository(db)
+	authService := service.NewAuthService(userRepo)
+	authHandler := handler.NewAuthHandler(authService)
+
+	r.Post("/auth/register", authHandler.Register)
+	r.Post("/auth/login", authHandler.Login)
+
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("🚀 API running"))
 	})
