@@ -27,7 +27,12 @@ func (h *CalculateHandler) CalculateFloor(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	result := h.service.CalculateFloor(req)
+	result, err := h.service.CalculateFloor(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
