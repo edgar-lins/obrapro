@@ -5,12 +5,15 @@ import (
 
 	"github.com/edgar-lins/obrapro/internal/calculator"
 	"github.com/edgar-lins/obrapro/internal/model"
+	"github.com/edgar-lins/obrapro/internal/repository"
 )
 
-type CalculateService struct{}
+type CalculateService struct {
+	repo *repository.ProjectRepository
+}
 
-func NewCalculateService() *CalculateService {
-	return &CalculateService{}
+func NewCalculateService(repo *repository.ProjectRepository) *CalculateService {
+	return &CalculateService{repo: repo}
 }
 
 func (s *CalculateService) CalculateFloor(req model.FloorCalculationRequest) (model.FloorCalculationResponse, error) {
@@ -20,6 +23,16 @@ func (s *CalculateService) CalculateFloor(req model.FloorCalculationRequest) (mo
 	}
 
 	result := calculator.CalculateFloor(req)
+
+	project := model.Project{
+		FloorType:      req.FloorType,
+		Area:           req.Area,
+		RemoveOldFloor: req.RemoveOldFloor,
+		Environment:    req.Environment,
+		LaborCost:      result.LaborCost,
+	}
+
+	s.repo.Save(project)
 
 	return result, nil
 }

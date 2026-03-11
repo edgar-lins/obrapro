@@ -4,7 +4,9 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/edgar-lins/obrapro/internal/database"
 	"github.com/edgar-lins/obrapro/internal/handler"
+	"github.com/edgar-lins/obrapro/internal/repository"
 	"github.com/edgar-lins/obrapro/internal/service"
 	"github.com/go-chi/chi"
 )
@@ -12,7 +14,9 @@ import (
 func main() {
 	r := chi.NewRouter()
 
-	calcService := service.NewCalculateService()
+	db := database.NewConnection()
+	projectRepo := repository.NewProjectRepository(db)
+	calcService := service.NewCalculateService(projectRepo)
 	calcHandler := handler.NewCalculateHandler(calcService)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
