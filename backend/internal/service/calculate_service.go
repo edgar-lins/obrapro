@@ -16,7 +16,7 @@ func NewCalculateService(repo *repository.ProjectRepository) *CalculateService {
 	return &CalculateService{repo: repo}
 }
 
-func (s *CalculateService) CalculateFloor(req model.FloorCalculationRequest) (model.FloorCalculationResponse, error) {
+func (s *CalculateService) CalculateFloor(req model.FloorCalculationRequest, userID int) (model.FloorCalculationResponse, error) {
 	err := validateRequest(req)
 	if err != nil {
 		return model.FloorCalculationResponse{}, err
@@ -25,6 +25,7 @@ func (s *CalculateService) CalculateFloor(req model.FloorCalculationRequest) (mo
 	result := calculator.CalculateFloor(req)
 
 	project := model.Project{
+		UserID:         userID,
 		FloorType:      req.FloorType,
 		Area:           req.Area,
 		RemoveOldFloor: req.RemoveOldFloor,
@@ -51,6 +52,6 @@ func validateRequest(req model.FloorCalculationRequest) error {
 	return nil
 }
 
-func (s *CalculateService) GetProjects() ([]model.Project, error) {
-	return s.repo.FindAll()
+func (s *CalculateService) GetProjects(userID int) ([]model.Project, error) {
+	return s.repo.FindAll(userID)
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/edgar-lins/obrapro/internal/model"
 	"github.com/edgar-lins/obrapro/internal/service"
+	"github.com/edgar-lins/obrapro/pkg/utils"
 )
 
 type CalculateHandler struct {
@@ -27,7 +28,9 @@ func (h *CalculateHandler) CalculateFloor(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	result, err := h.service.CalculateFloor(req)
+	userID := utils.GetUserID(r.Context())
+
+	result, err := h.service.CalculateFloor(req, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -38,7 +41,9 @@ func (h *CalculateHandler) CalculateFloor(w http.ResponseWriter, r *http.Request
 }
 
 func (h *CalculateHandler) GetProjects(w http.ResponseWriter, r *http.Request) {
-	projects, err := h.service.GetProjects()
+	userID := utils.GetUserID(r.Context())
+
+	projects, err := h.service.GetProjects(userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

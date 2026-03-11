@@ -18,12 +18,13 @@ func NewProjectRepository(db *pgxpool.Pool) *ProjectRepository {
 func (r *ProjectRepository) Save(project model.Project) error {
 	query := `
 	INSERT INTO projects
-	(floor_type, area, remove_old_floor, environment, labor_cost)
-	VALUES ($1, $2, $3, $4, $5)
+	(user_id, floor_type, area, remove_old_floor, environment, labor_cost)
+	VALUES ($1, $2, $3, $4, $5, $6)
 	`
 	_, err := r.db.Exec(
 		context.Background(),
 		query,
+		project.UserID,
 		project.FloorType,
 		project.Area,
 		project.RemoveOldFloor,
@@ -34,13 +35,14 @@ func (r *ProjectRepository) Save(project model.Project) error {
 	return err
 }
 
-func (r *ProjectRepository) FindAll() ([]model.Project, error) {
+func (r *ProjectRepository) FindAll(userID int) ([]model.Project, error) {
 	query := `
-	SELECT id, floor_type, area, remove_old_floor, environment, labor_cost, created_at
+	SELECT id, user_id, floor_type, area, remove_old_floor, environment, labor_cost, created_at
 	FROM projects
+	WHERE user_id = $1
 	ORDER BY created_at DESC
 	`
-	rows, err := r.db.Query(context.Background(), query)
+	rows, err := r.db.Query(context.Background(), query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +55,7 @@ func (r *ProjectRepository) FindAll() ([]model.Project, error) {
 
 		err := rows.Scan(
 			&p.ID,
+			&p.UserID,
 			&p.FloorType,
 			&p.Area,
 			&p.RemoveOldFloor,

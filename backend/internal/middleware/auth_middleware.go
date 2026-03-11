@@ -1,13 +1,12 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/edgar-lins/obrapro/pkg/utils"
 )
-
-var jwtSecret = []byte("super-secret-key")
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -19,13 +18,14 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 		tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
 
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return jwtSecret, nil
-		})
+		token, claims, err := utils.ParseToken(tokenString)
 		if err != nil || !token.Valid {
 			http.Error(w, "invalid token", http.StatusUnauthorized)
 			return
 		}
-		next.ServeHTTP(w, r)
+		userID := int(claims["user_id"].(float64))
+		ctx := context.WithValue(r.Context(), "user_id", userID)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
