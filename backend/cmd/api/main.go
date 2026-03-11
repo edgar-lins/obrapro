@@ -24,6 +24,7 @@ func main() {
 	})
 
 	r.Post("/calculate/floor", calcHandler.CalculateFloor)
+	r.Get("/projects", calcHandler.GetProjects)
 
 	log.Println("Server running on :8080")
 	http.ListenAndServe(":8080", r)

@@ -33,3 +33,38 @@ func (r *ProjectRepository) Save(project model.Project) error {
 
 	return err
 }
+
+func (r *ProjectRepository) FindAll() ([]model.Project, error) {
+	query := `
+	SELECT id, floor_type, area, remove_old_floor, environment, labor_cost, created_at
+	FROM projects
+	ORDER BY created_at DESC
+	`
+	rows, err := r.db.Query(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var projects []model.Project
+
+	for rows.Next() {
+		var p model.Project
+
+		err := rows.Scan(
+			&p.ID,
+			&p.FloorType,
+			&p.Area,
+			&p.RemoveOldFloor,
+			&p.Environment,
+			&p.LaborCost,
+			&p.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		projects = append(projects, p)
+	}
+	return projects, nil
+}

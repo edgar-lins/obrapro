@@ -50,3 +50,7 @@ func validateRequest(req model.FloorCalculationRequest) error {
 
 	return nil
 }
+
+func (s *CalculateService) GetProjects() ([]model.Project, error) {
+	return s.repo.FindAll()
+}

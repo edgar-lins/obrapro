@@ -36,3 +36,13 @@ func (h *CalculateHandler) CalculateFloor(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
+
+func (h *CalculateHandler) GetProjects(w http.ResponseWriter, r *http.Request) {
+	projects, err := h.service.GetProjects()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(projects)
+}
