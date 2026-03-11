@@ -5,6 +5,7 @@ import (
 
 	"github.com/edgar-lins/obrapro/internal/model"
 	"github.com/edgar-lins/obrapro/internal/repository"
+	"github.com/edgar-lins/obrapro/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -30,10 +31,10 @@ func (s *AuthService) Register(email, password string) error {
 	return s.repo.Create(user)
 }
 
-func (s *AuthService) Login(email, password string) (*model.User, error) {
+func (s *AuthService) Login(email, password string) (string, error) {
 	user, err := s.repo.FindByEmail(email)
 	if err != nil {
-		return nil, errors.New("invalid credentials")
+		return "", errors.New("invalid credentials")
 	}
 
 	err = bcrypt.CompareHashAndPassword(
@@ -41,8 +42,13 @@ func (s *AuthService) Login(email, password string) (*model.User, error) {
 		[]byte(password),
 	)
 	if err != nil {
-		return nil, errors.New("invalid credentials")
+		return "", errors.New("invalid credentials")
 	}
 
-	return user, nil
+	token, err := utils.GenerateToken(user.ID)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
