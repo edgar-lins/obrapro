@@ -97,7 +97,10 @@ export default function CalculateForm() {
           </h2>
 
           <p>
-            💰 Mão de obra: R$ {result.labor_cost}
+            💰 Mão de obra: {new Intl.NumberFormat("pt-BR", {
+              style: "currency",
+              currency: "BRL"
+            }).format(result.labor_cost)}
           </p>
 
           <p>
