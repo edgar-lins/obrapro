@@ -5,6 +5,7 @@ import (
 
 	"github.com/edgar-lins/obrapro/internal/database"
 	"github.com/edgar-lins/obrapro/internal/handler"
+	"github.com/edgar-lins/obrapro/internal/middleware"
 	"github.com/edgar-lins/obrapro/internal/repository"
 	"github.com/edgar-lins/obrapro/internal/service"
 	"github.com/go-chi/chi"
@@ -38,13 +39,12 @@ func NewRouter() http.Handler {
 	})
 
 	r.Post("/calculate/floor", calcHandler.CalculateFloor)
-	r.Get("/projects", calcHandler.GetProjects)
 	//VOLTAR COM ISSO AQUI!
-	// r.Group(func(r chi.Router) {
-	// 	r.Use(middleware.AuthMiddleware)
-	// 	r.Post("/calculate/floor", calcHandler.CalculateFloor)
-	// 	r.Get("/projects", calcHandler.GetProjects)
-	// })
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.AuthMiddleware)
+		//r.Post("/calculate/floor", calcHandler.CalculateFloor)
+		r.Get("/projects", calcHandler.GetProjects)
+	})
 
 	return r
 }
