@@ -9,10 +9,17 @@ import (
 	"github.com/edgar-lins/obrapro/internal/repository"
 	"github.com/edgar-lins/obrapro/internal/service"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/cors"
 )
 
 func NewRouter() http.Handler {
 	r := chi.NewRouter()
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowCredentials: true,
+	}))
 
 	db := database.NewConnection()
 

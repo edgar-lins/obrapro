@@ -4,7 +4,10 @@ go 1.25.5
 
 require github.com/go-chi/chi v1.5.5
 
+require github.com/rs/cors v1.11.1 // indirect
+
 require (
+	github.com/go-chi/cors v1.2.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
