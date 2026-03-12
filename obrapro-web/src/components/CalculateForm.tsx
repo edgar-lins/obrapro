@@ -90,13 +90,14 @@ export default function CalculateForm() {
       </form>
 
       {result && (
-        <div className="mt-10 border p-6 rounded">
+        <div className="mt-10 rounded-lg border p-6 shadow-sm bg-gray">
 
-          <h2 className="text-xl font-bold mb-4">
-            Resultado
+          <h2 className="text-xl font-bold mb-6">
+            Resultado da obra
           </h2>
 
-          <p>
+          <div className="space-y-2">
+            <p>
             💰 Mão de obra: {new Intl.NumberFormat("pt-BR", {
               style: "currency",
               currency: "BRL"
@@ -104,7 +105,7 @@ export default function CalculateForm() {
           </p>
 
           <p>
-            📦 Piso: {result.materials.floor_m2} m²
+            📦 Piso: {result.materials.floor_m2.toFixed(2)} m²
           </p>
 
           <p>
@@ -114,9 +115,10 @@ export default function CalculateForm() {
           <p>
             📦 Rejunte: {result.materials.grout_kg} kg
           </p>
+          </div>
 
-          <p className="mt-4">
-            ⏱ Tempo estimado: {result.estimated_days} dias
+          <p className="mt-6">
+            ⏱ <strong>Tempo estimado:</strong> {result.estimated_days} dias
           </p>
 
         </div>
