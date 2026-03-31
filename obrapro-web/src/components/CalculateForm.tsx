@@ -13,22 +13,32 @@ export default function CalculateForm() {
   const [result, setResult] = useState<FloorCalculationResponse | null>(null)
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-
     setLoading(true)
 
+    // 1. Vamos buscar o token do utilizador logado
+    const token = localStorage.getItem("obrapro_token")
+
+    if (!token) {
+      alert("Precisas de fazer login para calcular uma obra!")
+      setLoading(false)
+      return
+    }
+
     try {
+      // 2. Enviamos o token junto com os dados da obra
       const data = await calculateFloor({
         floor_type: floorType,
         area: Number(area),
         remove_old_floor: removeOldFloor,
         environment: environment
-      })
+      }, token) // <-- Adicionamos o token aqui!
 
       setResult(data)
+      alert("Orçamento salvo com sucesso no teu Painel!")
     } catch (err) {
-      alert("Erro ao calcular obra")
+      alert("Erro ao calcular obra. A tua sessão pode ter expirado.")
     }
 
     setLoading(false)
