@@ -2,17 +2,18 @@ package calculator
 
 import "github.com/edgar-lins/obrapro/internal/model"
 
-func CalculateFloor(req model.FloorCalculationRequest) model.FloorCalculationResponse {
-	basePrice := getBasePrice(req.FloorType)
+// Repara que agora recebemos a tabela de preços do utilizador como argumento
+func CalculateFloor(req model.FloorCalculationRequest, prices model.PriceTable) model.FloorCalculationResponse {
+	basePrice := getBasePrice(req.FloorType, prices)
 	labor := basePrice * req.Area
 
 	if req.RemoveOldFloor {
 		labor *= 1.3
 	}
-	if req.Environment == "bathroom" {
+	if req.Environment == "bathroom" || req.Environment == "banheiro" {
 		labor *= 1.2
 	}
-	if req.Environment == "external" {
+	if req.Environment == "external" || req.Environment == "externo" {
 		labor *= 1.15
 	}
 
@@ -36,15 +37,16 @@ func CalculateFloor(req model.FloorCalculationRequest) model.FloorCalculationRes
 	}
 }
 
-func getBasePrice(floorType string) float64 {
+// Agora usamos os preços do utilizador em vez de valores fixos!
+func getBasePrice(floorType string, prices model.PriceTable) float64 {
 	switch floorType {
-	case "porcelain":
-		return 100
-	case "ceramic":
-		return 70
-	case "vinyl":
-		return 60
+	case "porcelain", "porcelanato":
+		return prices.PorcelainPrice
+	case "ceramic", "ceramica":
+		return prices.CeramicPrice
+	case "vinyl", "vinilico":
+		return prices.VinylPrice
 	default:
-		return 80
+		return prices.OtherPrice
 	}
 }

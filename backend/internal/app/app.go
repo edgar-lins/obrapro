@@ -23,8 +23,10 @@ func NewRouter() http.Handler {
 
 	db := database.NewConnection()
 
+	priceRepo := repository.NewPriceRepository(db)
+
 	projectRepo := repository.NewProjectRepository(db)
-	calcService := service.NewCalculateService(projectRepo)
+	calcService := service.NewCalculateService(projectRepo, priceRepo)
 	calcHandler := handler.NewCalculateHandler(calcService)
 
 	userRepo := repository.NewUserRepository(db)
@@ -38,11 +40,9 @@ func NewRouter() http.Handler {
 		w.Write([]byte("🚀 API running"))
 	})
 
-	r.Post("/calculate/floor", calcHandler.CalculateFloor)
-	//VOLTAR COM ISSO AQUI!
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware)
-		//r.Post("/calculate/floor", calcHandler.CalculateFloor)
+		r.Post("/calculate/floor", calcHandler.CalculateFloor)
 		r.Get("/projects", calcHandler.GetProjects)
 	})
 
