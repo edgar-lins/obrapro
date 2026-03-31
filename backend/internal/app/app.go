@@ -24,6 +24,7 @@ func NewRouter() http.Handler {
 	db := database.NewConnection()
 
 	priceRepo := repository.NewPriceRepository(db)
+	priceHandler := handler.NewPriceHandler(priceRepo)
 
 	projectRepo := repository.NewProjectRepository(db)
 	calcService := service.NewCalculateService(projectRepo, priceRepo)
@@ -44,6 +45,9 @@ func NewRouter() http.Handler {
 		r.Use(middleware.AuthMiddleware)
 		r.Post("/calculate/floor", calcHandler.CalculateFloor)
 		r.Get("/projects", calcHandler.GetProjects)
+
+		r.Get("/prices", priceHandler.GetPrices)
+		r.Put("/prices", priceHandler.UpdatePrices)
 	})
 
 	return r
