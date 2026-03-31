@@ -28,3 +28,32 @@ export async function getProjects(token: string) {
 
     return res.json()
 }
+
+export async function getPrices(token: string) {
+    const res = await fetch(`${API_URL}/prices`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    })
+    if (!res.ok) {
+        throw new Error("Erro ao buscar preços")
+    }
+
+    return res.json()
+}
+
+export async function updatePrices(data: any, token: string) {
+    const res = await fetch(`${API_URL}/prices`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+        throw new Error("Erro ao atualizar preços")
+    }
+
+    return res.ok
+}
