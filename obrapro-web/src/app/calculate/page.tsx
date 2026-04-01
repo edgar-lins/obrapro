@@ -2,15 +2,15 @@ import CalculateForm from "@/components/CalculateForm"
 export default function CalculatePage() {
     return (
         <main className="flex flex-col items-center justify-center min-h-screen">
-            <h1 className="text-3xl font-bold">
+            {/* <h1 className="text-3xl font-bold">
                 Calculadora de piso
-            </h1>
+            </h1> */}
 
             <CalculateForm />
 
-            <p className="mt-4 text-gray-600">
+            {/* <p className="mt-4 text-gray-600">
                 Em breve você poderá calcular sua obra aqui.
-            </p>
+            </p> */}
         </main>
     )
 }
