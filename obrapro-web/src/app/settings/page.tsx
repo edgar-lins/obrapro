@@ -68,97 +68,188 @@ export default function SettingsPage() {
     setPrices(prev => ({ ...prev, [name]: Number(value) }))
   }
 
-  if (loading) return <p className="p-8 text-center">A carregar configurações...</p>
+  function handleDiscard() {
+    // Para descartar, recarregamos a página e voltamos a buscar os dados da API
+    window.location.reload()
+  }
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-surface">
+      <div className="w-12 h-12 border-4 border-primary-container border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  )
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <div className="mx-auto max-w-2xl">
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-3xl font-bold">A Minha Tabela de Preços</h1>
-          <Link href="/dashboard" className="text-black font-semibold hover:underline">
-            &larr; Voltar ao Painel
-          </Link>
+    <div className="bg-surface font-body text-on-surface min-h-screen pb-32 md:pb-0">
+      
+      {/* TopAppBar */}
+      <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl shadow-sm md:shadow-none flex justify-between items-center px-6 py-4">
+        <div className="flex items-center gap-3">
+          <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>architecture</span>
+          <span className="font-headline font-extrabold text-xl tracking-tight text-on-surface">ObraPro</span>
         </div>
+        
+        <nav className="hidden md:flex items-center gap-8">
+          <Link className="font-headline font-bold text-lg tracking-tight text-on-surface-variant hover:bg-surface-container-low transition-colors px-3 py-1 rounded-lg" href="/dashboard">Projetos</Link>
+          <Link className="font-headline font-bold text-lg tracking-tight text-on-surface-variant hover:bg-surface-container-low transition-colors px-3 py-1 rounded-lg" href="/calculate">Calcular</Link>
+          <Link className="font-headline font-bold text-lg tracking-tight text-primary px-3 py-1 rounded-lg" href="/settings">Preços</Link>
+        </nav>
 
-        <div className="rounded-lg border bg-white p-8 shadow-sm">
-          <p className="mb-6 text-gray-600">
-            Define aqui o valor que cobras por metro quadrado (m²) para cada tipo de serviço. 
-            Estes valores serão usados automaticamente nos teus próximos orçamentos.
+        <div className="flex items-center gap-4">
+          <button onClick={() => {
+            localStorage.removeItem("obrapro_token")
+            router.push("/login")
+          }} className="material-symbols-outlined text-on-surface-variant hover:text-error transition-colors" title="Sair">logout</button>
+          <div className="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden flex items-center justify-center text-primary font-bold">
+            OP
+          </div>
+        </div>
+      </header>
+
+      <main className="pt-24 md:pb-32 px-6 max-w-5xl mx-auto">
+        <section className="mb-12">
+          <h2 className="font-headline font-extrabold text-4xl text-on-surface mb-2">Tabela de Preços</h2>
+          <p className="text-on-surface-variant font-body text-lg max-w-2xl">
+            Configure a sua base de valores cobrados por metro quadrado (m²). Estes valores serão utilizados por defeito nos próximos orçamentos.
           </p>
+        </section>
 
-          {message.text && (
-            <div className={`mb-6 rounded p-4 ${message.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-              {message.text}
-            </div>
-          )}
+        {message.text && (
+          <div className={`mb-8 p-4 rounded-xl flex items-center gap-3 font-medium ${message.type === 'error' ? 'bg-error-container text-on-error-container' : 'bg-primary-container/20 text-primary-container'}`}>
+            <span className="material-symbols-outlined">{message.type === 'error' ? 'error' : 'check_circle'}</span>
+            {message.text}
+          </div>
+        )}
 
-          <form onSubmit={handleSave} className="flex flex-col gap-6">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-sm font-medium">Porcelanato (R$/m²)</label>
-                <input
-                  type="number"
-                  name="porcelain_price"
-                  value={prices.porcelain_price}
-                  onChange={handleChange}
-                  className="w-full rounded border p-2 focus:border-black focus:outline-none"
-                  min="0"
-                  step="0.01"
-                />
+        <form onSubmit={handleSave} className="space-y-8">
+          
+          {/* Card: Tipos de Piso */}
+          <div className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 rounded-xl bg-secondary-container flex items-center justify-center">
+                <span className="material-symbols-outlined text-on-secondary-container text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>layers</span>
               </div>
-
               <div>
-                <label className="mb-1 block text-sm font-medium">Cerâmica (R$/m²)</label>
-                <input
-                  type="number"
-                  name="ceramic_price"
-                  value={prices.ceramic_price}
-                  onChange={handleChange}
-                  className="w-full rounded border p-2 focus:border-black focus:outline-none"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium">Vinílico (R$/m²)</label>
-                <input
-                  type="number"
-                  name="vinyl_price"
-                  value={prices.vinyl_price}
-                  onChange={handleChange}
-                  className="w-full rounded border p-2 focus:border-black focus:outline-none"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium">Outros (R$/m²)</label>
-                <input
-                  type="number"
-                  name="other_price"
-                  value={prices.other_price}
-                  onChange={handleChange}
-                  className="w-full rounded border p-2 focus:border-black focus:outline-none"
-                  min="0"
-                  step="0.01"
-                />
+                <h3 className="font-headline font-bold text-xl text-on-surface">Revestimentos</h3>
+                <p className="text-sm text-on-surface-variant font-medium">Defina o valor da instalação por metro quadrado (R$/m²)</p>
               </div>
             </div>
 
-            <div className="mt-4 flex justify-end">
-              <button
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-on-surface-variant px-1" htmlFor="porcelain">Porcelanato R$/m²</label>
+                <div className="relative group">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
+                  <input 
+                    id="porcelain"
+                    name="porcelain_price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={prices.porcelain_price}
+                    onChange={handleChange}
+                    className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg placeholder:text-outline-variant outline-none" 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-on-surface-variant px-1" htmlFor="ceramic">Cerâmica R$/m²</label>
+                <div className="relative group">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
+                  <input 
+                    id="ceramic"
+                    name="ceramic_price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={prices.ceramic_price}
+                    onChange={handleChange}
+                    className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg placeholder:text-outline-variant outline-none" 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-on-surface-variant px-1" htmlFor="vinyl">Vinílico R$/m²</label>
+                <div className="relative group">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
+                  <input 
+                    id="vinyl"
+                    name="vinyl_price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={prices.vinyl_price}
+                    onChange={handleChange}
+                    className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg placeholder:text-outline-variant outline-none" 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-on-surface-variant px-1" htmlFor="other">Outros R$/m²</label>
+                <div className="relative group">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
+                  <input 
+                    id="other"
+                    name="other_price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={prices.other_price}
+                    onChange={handleChange}
+                    className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg placeholder:text-outline-variant outline-none" 
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Bar (Save / Discard) */}
+          <div className="flex flex-col md:flex-row items-center justify-between pt-6 gap-6 pb-8 md:pb-0">
+            <div className="flex items-center gap-3 text-on-surface-variant bg-surface-container-highest/50 p-4 rounded-xl border border-outline-variant/10">
+              <span className="material-symbols-outlined text-primary-container" style={{ fontVariationSettings: "'FILL' 1" }}>info</span>
+              <p className="text-sm font-medium">As alterações apenas afetarão os novos cálculos. O histórico permanece intacto.</p>
+            </div>
+            
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <button 
+                type="button"
+                onClick={handleDiscard}
+                className="flex-1 md:flex-none px-8 py-4 rounded-xl font-headline font-bold text-secondary hover:bg-surface-container-high transition-colors"
+              >
+                Descartar
+              </button>
+              <button 
                 type="submit"
                 disabled={saving}
-                className="rounded bg-black px-8 py-3 text-white hover:bg-gray-800 disabled:opacity-50"
+                className="flex-1 md:flex-none px-10 py-4 rounded-xl font-headline font-bold text-on-primary bg-primary-container hover:bg-primary transition-all shadow-lg shadow-primary-container/20 disabled:opacity-50"
               >
-                {saving ? "A guardar..." : "Guardar Preços"}
+                {saving ? "A Guardar..." : "Guardar Preços"}
               </button>
             </div>
-          </form>
-        </div>
-      </div>
-    </main>
+          </div>
+
+        </form>
+      </main>
+
+      {/* BottomNavBar (Mobile) */}
+      <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pt-2 pb-6 bg-surface/90 backdrop-blur-lg rounded-t-2xl border-t border-surface-variant/30 shadow-[0_-4px_20px_rgba(13,28,46,0.06)] z-50 md:hidden">
+        <Link href="/dashboard" className="flex flex-col items-center justify-center text-on-surface-variant opacity-70 hover:opacity-100 transition-opacity active:scale-90 transition-transform">
+          <span className="material-symbols-outlined">folder_open</span>
+          <span className="font-headline text-[11px] font-semibold uppercase tracking-wider mt-1">Projetos</span>
+        </Link>
+        <Link href="/calculate" className="flex flex-col items-center justify-center text-on-surface-variant opacity-70 hover:opacity-100 transition-opacity active:scale-90 transition-transform">
+          <span className="material-symbols-outlined">calculate</span>
+          <span className="font-headline text-[11px] font-semibold uppercase tracking-wider mt-1">Calcular</span>
+        </Link>
+        <Link href="/settings" className="flex flex-col items-center justify-center text-primary bg-surface-container-highest rounded-xl px-4 py-1 active:scale-90 transition-transform">
+          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>settings</span>
+          <span className="font-headline text-[11px] font-semibold uppercase tracking-wider mt-1">Preços</span>
+        </Link>
+      </nav>
+
+    </div>
   )
 }
