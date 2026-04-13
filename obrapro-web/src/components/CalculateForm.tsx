@@ -1,25 +1,98 @@
 "use client"
 
 import { useState } from "react"
-import { calculateFloor } from "@/services/api"
-import { FloorCalculationResponse } from "@/types/calculate"
+import { calculateFloor, calculatePaint } from "@/services/api"
+import { CalculationResult, isFloorResult, isPaintResult } from "@/types/calculate"
 import Link from "next/link"
+import OrcamentoPDF from "@/components/OrcamentoPDF"
+
+type ServiceType = "piso" | "pintura"
+
+type EnvironmentItem = {
+  id: string
+  serviceType: ServiceType
+  area: string
+  environment: string
+  // Piso
+  floorType: string
+  removeOldFloor: boolean
+  // Pintura
+  paintType: string
+  coats: number
+  includeMassaCorrida: boolean
+  includeFundo: boolean
+  result?: CalculationResult
+}
+
+const FLOOR_OPTIONS = [
+  { value: "porcelanato", label: "Porcelanato", icon: "layers" },
+  { value: "ceramica", label: "Cerâmica", icon: "grid_on" },
+  { value: "vinilico", label: "Vinílico", icon: "view_quilt" },
+]
+
+const ENV_OPTIONS = [
+  { value: "sala", label: "Sala (Área Seca)" },
+  { value: "cozinha", label: "Cozinha (Área Húmida)" },
+  { value: "banheiro", label: "Casa de Banho (Área Molhada)" },
+  { value: "externo", label: "Exterior (Exposto)" },
+]
+
+const PAINT_OPTIONS = [
+  { value: "acrilica", label: "Acrílica", icon: "format_paint" },
+  { value: "latex", label: "Látex", icon: "water_drop" },
+  { value: "esmalte", label: "Esmalte", icon: "brush" },
+]
+
+function newEnv(id: string): EnvironmentItem {
+  return {
+    id,
+    serviceType: "piso",
+    area: "",
+    environment: "sala",
+    floorType: "porcelanato",
+    removeOldFloor: false,
+    paintType: "acrilica",
+    coats: 2,
+    includeMassaCorrida: false,
+    includeFundo: false,
+  }
+}
+
+const fmt = (v: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)
 
 export default function CalculateForm() {
-  const [floorType, setFloorType] = useState("porcelanato")
-  const [area, setArea] = useState("")
-  const [removeOldFloor, setRemoveOldFloor] = useState(false)
-  const [environment, setEnvironment] = useState("sala")
-
-  const [result, setResult] = useState<FloorCalculationResponse | null>(null)
+  const [environments, setEnvironments] = useState<EnvironmentItem[]>([newEnv("1")])
+  const [clientName, setClientName] = useState("")
+  const [clientPhone, setClientPhone] = useState("")
+  const [clientAddress, setClientAddress] = useState("")
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+  const hasResults = environments.every((e) => e.result)
+  const isMulti = environments.length > 1
+
+  const totalLabor = environments.reduce((s, e) => s + (e.result?.labor_cost ?? 0), 0)
+  const totalMaterial = environments.reduce((s, e) => s + (e.result?.material_cost ?? 0), 0)
+  const totalCost = environments.reduce((s, e) => s + (e.result?.total_cost ?? 0), 0)
+  const totalDays = environments.reduce((s, e) => s + (e.result?.estimated_days ?? 0), 0)
+
+  function updateEnv(id: string, patch: Partial<EnvironmentItem>) {
+    setEnvironments((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch, result: undefined } : e)))
+  }
+
+  function addEnvironment() {
+    setEnvironments((prev) => [...prev, newEnv(String(Date.now()))])
+  }
+
+  function removeEnvironment(id: string) {
+    setEnvironments((prev) => prev.filter((e) => e.id !== id))
+  }
+
+  async function handleCalculate(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
 
     const token = localStorage.getItem("obrapro_token")
-
     if (!token) {
       alert("Precisas de fazer login para calcular uma obra!")
       setLoading(false)
@@ -27,30 +100,45 @@ export default function CalculateForm() {
     }
 
     try {
-      const data = await calculateFloor({
-        floor_type: floorType,
-        area: Number(area),
-        remove_old_floor: removeOldFloor,
-        environment: environment
-      }, token)
+      const results = await Promise.all(
+        environments.map((env) => {
+          if (env.serviceType === "pintura") {
+            return calculatePaint(
+              { paint_type: env.paintType, area: Number(env.area), coats: env.coats, include_massa_corrida: env.includeMassaCorrida, include_fundo: env.includeFundo, environment: env.environment },
+              token,
+            )
+          }
+          return calculateFloor(
+            { floor_type: env.floorType, area: Number(env.area), remove_old_floor: env.removeOldFloor, environment: env.environment },
+            token,
+            isMulti,
+          )
+        })
+      )
 
-      setResult(data)
-    } catch (err) {
-      alert("Erro ao calcular obra. A tua sessão pode ter expirado.")
+      setEnvironments((prev) =>
+        prev.map((env, i) => ({ ...env, result: results[i] }))
+      )
+    } catch (err: any) {
+      console.error("Erro ao calcular:", err)
+      const msg = err?.message ?? String(err)
+      if (msg.includes("401") || msg.toLowerCase().includes("unauthorized")) {
+        localStorage.removeItem("obrapro_token")
+        alert("Sessão expirada. Faz login novamente.")
+      } else {
+        alert(`Erro ao calcular: ${msg}`)
+      }
     }
 
     setLoading(false)
   }
 
-  function handlePrint() {
-    window.print()
-  }
-
   return (
-    <div className="w-full max-w-2xl mx-auto font-body text-on-surface pb-32">
-      
+    <>
+    <div className="w-full max-w-2xl mx-auto font-body text-on-surface pb-32 print:hidden">
+
       {/* Botão Voltar */}
-      <div className="mb-6 print:hidden">
+      <div className="mb-6">
         <Link href="/dashboard" className="inline-flex items-center gap-2 text-secondary font-semibold text-sm hover:opacity-80 transition-opacity">
           <span className="material-symbols-outlined text-lg">arrow_back</span>
           Voltar ao Painel
@@ -58,218 +146,380 @@ export default function CalculateForm() {
       </div>
 
       {/* Cabeçalho */}
-      <div className="mb-8 print:hidden">
-        <h1 className="text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight font-headline">Novo Cálculo</h1>
-        <p className="text-on-surface-variant text-sm mt-2">Defina as especificações do projeto para uma estimativa precisa.</p>
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight font-headline">Novo Orçamento</h1>
+        <p className="text-on-surface-variant text-sm mt-2">Adicione um ou mais ambientes e gere um PDF profissional.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 print:hidden">
-        
-        {/* Bloco Principal do Formulário */}
+      <form onSubmit={handleCalculate} className="space-y-6">
+
+        {/* Dados do Cliente */}
         <div className="bg-surface-container-low rounded-2xl p-1 md:p-2 border border-outline-variant/10 shadow-sm">
-          <div className="bg-surface-container-lowest rounded-xl p-6 md:p-8 space-y-8">
-            
-            {/* Tipo de Piso (Botões Visuais) */}
-            <div className="space-y-3">
-              <label className="block text-sm font-bold text-on-surface tracking-wide">Tipo de Revestimento</label>
-              <div className="grid grid-cols-3 gap-3">
-                
-                <button 
-                  type="button"
-                  onClick={() => setFloorType("porcelanato")}
-                  className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${floorType === "porcelanato" ? "border-primary-container bg-surface-container-low text-primary" : "border-transparent bg-surface-container-low/50 text-on-surface-variant hover:border-surface-variant"}`}
-                >
-                  <span className="material-symbols-outlined mb-2" style={{ fontVariationSettings: floorType === "porcelanato" ? "'FILL' 1" : "'FILL' 0" }}>layers</span>
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-center">Porcelanato</span>
-                </button>
-
-                <button 
-                  type="button"
-                  onClick={() => setFloorType("ceramica")}
-                  className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${floorType === "ceramica" ? "border-primary-container bg-surface-container-low text-primary" : "border-transparent bg-surface-container-low/50 text-on-surface-variant hover:border-surface-variant"}`}
-                >
-                  <span className="material-symbols-outlined mb-2" style={{ fontVariationSettings: floorType === "ceramica" ? "'FILL' 1" : "'FILL' 0" }}>grid_on</span>
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-center">Cerâmica</span>
-                </button>
-
-                <button 
-                  type="button"
-                  onClick={() => setFloorType("vinilico")}
-                  className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${floorType === "vinilico" ? "border-primary-container bg-surface-container-low text-primary" : "border-transparent bg-surface-container-low/50 text-on-surface-variant hover:border-surface-variant"}`}
-                >
-                  <span className="material-symbols-outlined mb-2" style={{ fontVariationSettings: floorType === "vinilico" ? "'FILL' 1" : "'FILL' 0" }}>view_quilt</span>
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-center">Vinílico</span>
-                </button>
-
+          <div className="bg-surface-container-lowest rounded-xl p-6 md:p-8 space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-secondary-container/20 rounded-lg text-secondary">
+                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-on-surface">Dados do Cliente</p>
+                <p className="text-[11px] text-on-surface-variant mt-0.5">Opcional — aparece no PDF do orçamento</p>
               </div>
             </div>
 
-            {/* Área Total */}
-            <div className="space-y-3">
-              <label className="block text-sm font-bold text-on-surface tracking-wide" htmlFor="area">Área Total</label>
-              <div className="relative group">
-                <input 
-                  id="area"
-                  type="number"
-                  min="1"
-                  required
-                  placeholder="0.00"
-                  value={area}
-                  onChange={(e) => setArea(e.target.value)}
-                  className="w-full bg-surface-container-lowest border-none ring-1 ring-outline-variant focus:ring-2 focus:ring-secondary-container rounded-xl p-4 text-lg font-semibold text-on-surface transition-all placeholder:text-outline-variant/60 outline-none" 
-                />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 text-on-surface-variant font-bold text-sm bg-surface-container px-3 py-1.5 rounded-md pointer-events-none">
-                  m²
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-on-surface" htmlFor="clientName">Nome</label>
+                <input id="clientName" type="text" placeholder="Ex: João Silva" value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  className="w-full bg-surface-container-lowest border-none ring-1 ring-outline-variant focus:ring-2 focus:ring-secondary-container rounded-xl p-4 text-on-surface font-medium transition-all placeholder:text-outline-variant/60 outline-none" />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-on-surface" htmlFor="clientPhone">Telefone</label>
+                <input id="clientPhone" type="tel" placeholder="(11) 99999-9999" value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                  className="w-full bg-surface-container-lowest border-none ring-1 ring-outline-variant focus:ring-2 focus:ring-secondary-container rounded-xl p-4 text-on-surface font-medium transition-all placeholder:text-outline-variant/60 outline-none" />
               </div>
             </div>
-
-            {/* Ambiente */}
-            <div className="space-y-3">
-              <label className="block text-sm font-bold text-on-surface tracking-wide">Ambiente</label>
-              <div className="relative">
-                <select 
-                  value={environment}
-                  onChange={(e) => setEnvironment(e.target.value)}
-                  className="w-full bg-surface-container-lowest border-none ring-1 ring-outline-variant focus:ring-2 focus:ring-secondary-container rounded-xl p-4 appearance-none text-on-surface font-medium outline-none cursor-pointer"
-                >
-                  <option value="sala">Sala (Área Seca)</option>
-                  <option value="cozinha">Cozinha (Área Húmida)</option>
-                  <option value="banheiro">Casa de Banho (Área Molhada)</option>
-                  <option value="externo">Exterior (Exposto)</option>
-                </select>
-                <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant">expand_more</span>
-              </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-on-surface" htmlFor="clientAddress">Endereço da Obra</label>
+              <input id="clientAddress" type="text" placeholder="Ex: Rua das Flores, 123 — São Paulo, SP" value={clientAddress}
+                onChange={(e) => setClientAddress(e.target.value)}
+                className="w-full bg-surface-container-lowest border-none ring-1 ring-outline-variant focus:ring-2 focus:ring-secondary-container rounded-xl p-4 text-on-surface font-medium transition-all placeholder:text-outline-variant/60 outline-none" />
             </div>
-
-            {/* Remover Piso Antigo (Toggle) */}
-            <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-xl border border-outline-variant/10">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-secondary-container/20 rounded-lg text-secondary">
-                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>delete_sweep</span>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-on-surface">Remover Piso Antigo</p>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5">Inclui demolição e descarte (+30% labor)</p>
-                </div>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
-                  checked={removeOldFloor}
-                  onChange={(e) => setRemoveOldFloor(e.target.checked)}
-                />
-                <div className="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
-              </label>
-            </div>
-
           </div>
         </div>
 
-        {/* Caixa de Informação */}
+        {/* Ambientes */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-headline font-bold text-on-surface text-base">Ambientes</h2>
+            <span className="text-xs text-on-surface-variant font-medium">{environments.length} {environments.length === 1 ? "ambiente" : "ambientes"}</span>
+          </div>
+
+          {environments.map((env, index) => (
+            <div key={env.id} className="bg-surface-container-low rounded-2xl p-1 md:p-2 border border-outline-variant/10 shadow-sm">
+              <div className="bg-surface-container-lowest rounded-xl p-6 md:p-8 space-y-6">
+
+                {/* Card Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-primary-container text-on-primary text-xs font-bold flex items-center justify-center">{index + 1}</span>
+                    <span className="material-symbols-outlined text-[18px] text-primary">{env.serviceType === "pintura" ? "format_paint" : "layers"}</span>
+                    <span className="text-sm font-bold text-on-surface capitalize">
+                      {env.serviceType === "pintura" ? "Pintura" : ENV_OPTIONS.find(o => o.value === env.environment)?.label.split(" ")[0] ?? "Piso"}
+                    </span>
+                  </div>
+                  {environments.length > 1 && (
+                    <button type="button" onClick={() => removeEnvironment(env.id)}
+                      className="p-1.5 rounded-lg text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors">
+                      <span className="material-symbols-outlined text-[18px]">close</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Seletor de Serviço */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-bold text-on-surface">Tipo de Serviço</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { value: "piso", label: "Piso", icon: "layers" },
+                      { value: "pintura", label: "Pintura", icon: "format_paint" },
+                    ].map((opt) => (
+                      <button key={opt.value} type="button"
+                        onClick={() => updateEnv(env.id, { serviceType: opt.value as ServiceType })}
+                        className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all font-bold text-sm ${env.serviceType === opt.value ? "border-primary-container bg-surface-container-low text-primary" : "border-transparent bg-surface-container-low/50 text-on-surface-variant hover:border-surface-variant"}`}>
+                        <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: env.serviceType === opt.value ? "'FILL' 1" : "'FILL' 0" }}>{opt.icon}</span>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Área + Ambiente — sempre visíveis */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-on-surface">Área Total</label>
+                    <div className="relative">
+                      <input type="number" min="1" required placeholder="0.00"
+                        value={env.area} onChange={(e) => updateEnv(env.id, { area: e.target.value })}
+                        className="w-full bg-surface-container-lowest border-none ring-1 ring-outline-variant focus:ring-2 focus:ring-secondary-container rounded-xl p-4 pr-14 text-lg font-semibold text-on-surface transition-all placeholder:text-outline-variant/60 outline-none" />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold text-sm bg-surface-container px-2 py-1 rounded-md pointer-events-none">m²</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-on-surface">Ambiente</label>
+                    <div className="relative">
+                      <select value={env.environment} onChange={(e) => updateEnv(env.id, { environment: e.target.value })}
+                        className="w-full bg-surface-container-lowest border-none ring-1 ring-outline-variant focus:ring-2 focus:ring-secondary-container rounded-xl p-4 appearance-none text-on-surface font-medium outline-none cursor-pointer h-[58px]">
+                        {ENV_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                      <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-sm">expand_more</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Campos de Piso */}
+                {env.serviceType === "piso" && (<>
+                  <div className="space-y-3">
+                    <label className="block text-sm font-bold text-on-surface">Tipo de Revestimento</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {FLOOR_OPTIONS.map((opt) => (
+                        <button key={opt.value} type="button" onClick={() => updateEnv(env.id, { floorType: opt.value })}
+                          className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${env.floorType === opt.value ? "border-primary-container bg-surface-container-low text-primary" : "border-transparent bg-surface-container-low/50 text-on-surface-variant hover:border-surface-variant"}`}>
+                          <span className="material-symbols-outlined mb-2" style={{ fontVariationSettings: env.floorType === opt.value ? "'FILL' 1" : "'FILL' 0" }}>{opt.icon}</span>
+                          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-center">{opt.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-xl border border-outline-variant/10">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-secondary-container/20 rounded-lg text-secondary">
+                        <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>delete_sweep</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-on-surface">Remover Piso Antigo</p>
+                        <p className="text-[11px] text-on-surface-variant mt-0.5">Inclui demolição e descarte (+30%)</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" checked={env.removeOldFloor}
+                        onChange={(e) => updateEnv(env.id, { removeOldFloor: e.target.checked })} />
+                      <div className="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+                    </label>
+                  </div>
+                </>)}
+
+                {/* Campos de Pintura */}
+                {env.serviceType === "pintura" && (<>
+                  <div className="space-y-3">
+                    <label className="block text-sm font-bold text-on-surface">Tipo de Tinta</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {PAINT_OPTIONS.map((opt) => (
+                        <button key={opt.value} type="button" onClick={() => updateEnv(env.id, { paintType: opt.value })}
+                          className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${env.paintType === opt.value ? "border-primary-container bg-surface-container-low text-primary" : "border-transparent bg-surface-container-low/50 text-on-surface-variant hover:border-surface-variant"}`}>
+                          <span className="material-symbols-outlined mb-2" style={{ fontVariationSettings: env.paintType === opt.value ? "'FILL' 1" : "'FILL' 0" }}>{opt.icon}</span>
+                          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-center">{opt.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-on-surface">Número de Demãos</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[1, 2, 3].map((n) => (
+                        <button key={n} type="button" onClick={() => updateEnv(env.id, { coats: n })}
+                          className={`py-3 rounded-xl border-2 font-headline font-bold transition-all ${env.coats === n ? "border-primary-container bg-surface-container-low text-primary" : "border-transparent bg-surface-container-low/50 text-on-surface-variant hover:border-surface-variant"}`}>
+                          {n} {n === 1 ? "demão" : "demãos"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {[
+                      { key: "includeMassaCorrida" as const, label: "Massa Corrida", sub: "0,5 kg/m²", icon: "texture" },
+                      { key: "includeFundo" as const, label: "Fundo Preparador", sub: "Melhora aderência", icon: "layers_clear" },
+                    ].map((toggle) => (
+                      <div key={toggle.key} className="flex items-center justify-between p-4 bg-surface-container-low rounded-xl border border-outline-variant/10">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-secondary-container/20 rounded-lg text-secondary">
+                            <span className="material-symbols-outlined text-[20px]">{toggle.icon}</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-on-surface">{toggle.label}</p>
+                            <p className="text-[11px] text-on-surface-variant mt-0.5">{toggle.sub}</p>
+                          </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" checked={env[toggle.key] as boolean}
+                            onChange={(e) => updateEnv(env.id, { [toggle.key]: e.target.checked })} />
+                          <div className="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </>)}
+
+                {/* Resultado inline do ambiente (após calcular) */}
+                {env.result && (
+                  <div className="mt-2 pt-4 border-t border-outline-variant/20 space-y-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="text-center p-3 bg-surface-container-low rounded-xl">
+                        <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Mão de Obra</p>
+                        <p className="text-sm font-headline font-extrabold text-on-surface">{fmt(env.result.labor_cost)}</p>
+                      </div>
+                      <div className="text-center p-3 bg-surface-container-low rounded-xl">
+                        <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Material</p>
+                        <p className="text-sm font-headline font-extrabold text-on-surface">{fmt(env.result.material_cost)}</p>
+                      </div>
+                      <div className="text-center p-3 bg-primary-container/20 rounded-xl">
+                        <p className="text-[10px] uppercase tracking-wider text-primary font-bold mb-1">Total</p>
+                        <p className="text-sm font-headline font-extrabold text-primary">{fmt(env.result.total_cost)}</p>
+                      </div>
+                    </div>
+                    {isPaintResult(env.result) && (
+                      <div className="flex gap-3 text-xs text-on-surface-variant">
+                        <span className="bg-surface-container px-2 py-1 rounded-lg font-medium">{env.result.paint_materials.paint_liters.toFixed(1)} L tinta</span>
+                        {env.result.paint_materials.massa_corrida_kg > 0 && <span className="bg-surface-container px-2 py-1 rounded-lg font-medium">{env.result.paint_materials.massa_corrida_kg.toFixed(1)} kg massa corrida</span>}
+                        {env.result.paint_materials.fundo_liters > 0 && <span className="bg-surface-container px-2 py-1 rounded-lg font-medium">{env.result.paint_materials.fundo_liters.toFixed(1)} L fundo</span>}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </div>
+            </div>
+          ))}
+
+          {/* Botão Adicionar Ambiente */}
+          <button type="button" onClick={addEnvironment}
+            className="w-full py-4 rounded-2xl border-2 border-dashed border-outline-variant/40 text-on-surface-variant font-headline font-bold text-sm hover:border-primary-container hover:text-primary hover:bg-surface-container-low/50 transition-all flex items-center justify-center gap-2">
+            <span className="material-symbols-outlined">add</span>
+            Adicionar Ambiente
+          </button>
+        </div>
+
+        {/* Info box */}
         <div className="bg-surface-container-highest/50 rounded-2xl p-5 flex items-start gap-4 border border-outline-variant/20">
           <span className="material-symbols-outlined text-primary-container mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>info</span>
           <p className="text-sm text-on-secondary-container leading-relaxed">
-             As estimativas utilizam os valores configurados na sua <Link href="/settings" className="underline font-bold">Tabela de Preços</Link>. A quantidade de material inclui <strong>10% de margem de quebra</strong>.
+            Os valores utilizam a sua <Link href="/settings" className="underline font-bold">Tabela de Preços</Link>. Material inclui <strong>10% de margem de quebra</strong>.
+            {isMulti && <span className="block mt-1 text-on-surface-variant">Múltiplos ambientes não são salvos no Dashboard — use o PDF para guardar o orçamento.</span>}
           </p>
         </div>
 
         {/* Botão Calcular */}
-        <button 
-          type="submit"
-          disabled={loading}
-          className="w-full bg-gradient-to-br from-primary to-primary-container text-on-primary py-4 rounded-xl font-headline font-bold text-lg shadow-lg shadow-primary-container/20 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50 mt-4"
-        >
-          {loading ? (
-            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-          ) : (
-            <span className="material-symbols-outlined">calculate</span>
-          )}
-          {loading ? "A calcular precisão..." : "Calcular Orçamento"}
+        <button type="submit" disabled={loading}
+          className="w-full bg-gradient-to-br from-primary to-primary-container text-on-primary py-4 rounded-xl font-headline font-bold text-lg shadow-lg shadow-primary-container/20 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+          {loading
+            ? <><div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> A calcular...</>
+            : <><span className="material-symbols-outlined">calculate</span> Calcular {isMulti ? "Todos os Ambientes" : "Orçamento"}</>
+          }
         </button>
 
       </form>
 
-      {/* Resultados do Cálculo (e área de impressão) */}
-      {result && (
-        <div className="mt-12 rounded-2xl border border-outline-variant/20 bg-white shadow-xl shadow-on-surface/5 overflow-hidden print:border-none print:shadow-none print:mt-0">
-          
-          {/* Cabeçalho do Resultado */}
-          <div className="bg-surface-container-low p-6 md:p-8 border-b border-outline-variant/10">
-            <div className="flex justify-between items-start mb-4">
-              <div>
+      {/* Resumo Total (múltiplos ambientes) */}
+      {hasResults && (
+        <div className="mt-10 space-y-4">
+          {isMulti && (
+            <div className="rounded-2xl overflow-hidden border border-outline-variant/20 bg-white shadow-xl shadow-on-surface/5">
+              <div className="p-6 bg-surface-container-low border-b border-outline-variant/10">
+                <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-1">Resumo da Obra</h2>
+                <p className="font-headline font-extrabold text-4xl text-on-surface">{fmt(totalCost)}</p>
+                <p className="text-sm text-on-surface-variant mt-1">Custo total estimado</p>
+              </div>
+              <div className="grid grid-cols-3 divide-x divide-outline-variant/20">
+                <div className="p-5 text-center">
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Mão de Obra</p>
+                  <p className="text-lg font-headline font-extrabold text-on-surface">{fmt(totalLabor)}</p>
+                </div>
+                <div className="p-5 text-center">
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Material</p>
+                  <p className="text-lg font-headline font-extrabold text-on-surface">{fmt(totalMaterial)}</p>
+                </div>
+                <div className="p-5 text-center">
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Prazo</p>
+                  <p className="text-lg font-headline font-extrabold text-on-surface">{totalDays} dias</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Resultado único (1 ambiente) */}
+          {!isMulti && environments[0].result && (
+            <div className="rounded-2xl overflow-hidden border border-outline-variant/20 bg-white shadow-xl shadow-on-surface/5">
+              <div className="p-6 md:p-8 bg-surface-container-low border-b border-outline-variant/10">
                 <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-2">Cálculo Finalizado</h2>
-                <div className="font-headline font-extrabold text-4xl text-on-surface tracking-tight">
-                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(result.labor_cost)}
+                <div className="font-headline font-extrabold text-4xl text-on-surface">{fmt(environments[0].result.total_cost)}</div>
+                <div className="text-sm text-on-surface-variant mt-1 font-medium">Custo total estimado</div>
+                <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-outline-variant/20">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Mão de Obra</p>
+                    <p className="font-semibold text-on-surface">{fmt(environments[0].result.labor_cost)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Material</p>
+                    <p className="font-semibold text-on-surface">{fmt(environments[0].result.material_cost)}</p>
+                  </div>
                 </div>
-                <div className="text-sm text-on-surface-variant mt-1 font-medium">Mão de obra total</div>
               </div>
-              <div className="p-3 bg-primary-container text-on-primary rounded-xl print:hidden">
-                <span className="material-symbols-outlined">check_circle</span>
+
+              {/* Materiais */}
+              <div className="p-6 md:p-8">
+                <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant border-b border-outline-variant/20 pb-2 mb-6">Lista de Materiais</h3>
+                {isFloorResult(environments[0].result) && (
+                  <div className="grid grid-cols-3 gap-6">
+                    {[
+                      { icon: "layers", label: "Revestimento", value: `${environments[0].result.materials.floor_m2.toFixed(1)} m²`, sub: "+10% quebra" },
+                      { icon: "view_in_ar", label: "Argamassa", value: `${environments[0].result.materials.mortar_bags} sacos`, sub: "AC II / AC III" },
+                      { icon: "water_drop", label: "Rejunte", value: `${environments[0].result.materials.grout_kg} kg`, sub: "Estimativa padrão" },
+                    ].map((mat) => (
+                      <div key={mat.label} className="space-y-1">
+                        <div className="flex items-center gap-2 text-on-surface-variant mb-2">
+                          <span className="material-symbols-outlined text-lg">{mat.icon}</span>
+                          <span className="text-xs font-bold uppercase tracking-wider">{mat.label}</span>
+                        </div>
+                        <div className="text-2xl font-headline font-extrabold text-on-surface">{mat.value}</div>
+                        <div className="text-[10px] text-on-surface-variant uppercase tracking-wide">{mat.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {isPaintResult(environments[0].result) && (
+                  <div className="grid grid-cols-3 gap-6">
+                    {[
+                      { icon: "format_paint", label: "Tinta", value: `${environments[0].result.paint_materials.paint_liters.toFixed(1)} L`, sub: `${environments[0].coats} demão(s)` },
+                      ...(environments[0].result.paint_materials.massa_corrida_kg > 0 ? [{ icon: "texture", label: "Massa Corrida", value: `${environments[0].result.paint_materials.massa_corrida_kg.toFixed(1)} kg`, sub: "0,5 kg/m²" }] : []),
+                      ...(environments[0].result.paint_materials.fundo_liters > 0 ? [{ icon: "layers_clear", label: "Fundo Preparador", value: `${environments[0].result.paint_materials.fundo_liters.toFixed(1)} L`, sub: "10 m²/L" }] : []),
+                    ].map((mat) => (
+                      <div key={mat.label} className="space-y-1">
+                        <div className="flex items-center gap-2 text-on-surface-variant mb-2">
+                          <span className="material-symbols-outlined text-lg">{mat.icon}</span>
+                          <span className="text-xs font-bold uppercase tracking-wider">{mat.label}</span>
+                        </div>
+                        <div className="text-2xl font-headline font-extrabold text-on-surface">{mat.value}</div>
+                        <div className="text-[10px] text-on-surface-variant uppercase tracking-wide">{mat.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 pb-2 text-xs text-on-surface-variant flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm">schedule</span>
+                {environments[0].result.estimated_days} {environments[0].result.estimated_days === 1 ? "dia estimado" : "dias estimados"}
               </div>
             </div>
-            
-            <div className="flex flex-wrap gap-2 mt-6">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-container-highest rounded-lg text-xs font-bold text-secondary">
-                <span className="material-symbols-outlined text-[14px]">schedule</span>
-                {result.estimated_days} {result.estimated_days === 1 ? 'dia estimado' : 'dias estimados'}
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-container-highest rounded-lg text-xs font-bold text-secondary">
-                <span className="material-symbols-outlined text-[14px]">aspect_ratio</span>
-                {area} m² área base
-              </span>
-            </div>
-          </div>
+          )}
 
-          {/* Detalhes dos Materiais */}
-          <div className="p-6 md:p-8 space-y-6">
-            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant border-b border-outline-variant/20 pb-2">Lista de Materiais</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-on-surface-variant mb-2">
-                  <span className="material-symbols-outlined text-lg">layers</span>
-                  <span className="text-xs font-bold uppercase tracking-wider">Revestimento</span>
-                </div>
-                <div className="text-2xl font-headline font-extrabold text-on-surface">{result.materials.floor_m2.toFixed(1)} <span className="text-sm text-on-surface-variant font-medium">m²</span></div>
-                <div className="text-[10px] text-on-surface-variant uppercase tracking-wide">Piso + 10% Quebra</div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-on-surface-variant mb-2">
-                  <span className="material-symbols-outlined text-lg">view_in_ar</span>
-                  <span className="text-xs font-bold uppercase tracking-wider">Argamassa</span>
-                </div>
-                <div className="text-2xl font-headline font-extrabold text-on-surface">{result.materials.mortar_bags} <span className="text-sm text-on-surface-variant font-medium">sacos</span></div>
-                <div className="text-[10px] text-on-surface-variant uppercase tracking-wide">Rendimento Base</div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-on-surface-variant mb-2">
-                  <span className="material-symbols-outlined text-lg">water_drop</span>
-                  <span className="text-xs font-bold uppercase tracking-wider">Rejunte</span>
-                </div>
-                <div className="text-2xl font-headline font-extrabold text-on-surface">{result.materials.grout_kg} <span className="text-sm text-on-surface-variant font-medium">kg</span></div>
-                <div className="text-[10px] text-on-surface-variant uppercase tracking-wide">Estimativa Padrão</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Botão de PDF */}
-          <div className="p-6 md:p-8 bg-surface-container-lowest border-t border-outline-variant/10 print:hidden">
-            <button 
-              onClick={handlePrint}
-              className="w-full bg-surface-container-highest text-secondary py-4 rounded-xl font-headline font-bold text-base hover:bg-surface-container-high active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-outlined">picture_as_pdf</span>
-              Exportar Orçamento (PDF)
-            </button>
-          </div>
-
+          {/* Botão PDF */}
+          <button onClick={() => window.print()}
+            className="w-full bg-primary text-on-primary py-4 rounded-xl font-headline font-bold text-base hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
+            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>picture_as_pdf</span>
+            Exportar Orçamento (PDF)
+          </button>
         </div>
       )}
 
     </div>
+
+    {/* Componente PDF — oculto na tela, visível apenas na impressão */}
+    {hasResults && (
+      <OrcamentoPDF
+        environments={environments}
+        clientName={clientName}
+        clientPhone={clientPhone}
+        clientAddress={clientAddress}
+        totalLabor={totalLabor}
+        totalMaterial={totalMaterial}
+        totalCost={totalCost}
+        totalDays={totalDays}
+      />
+    )}
+    </>
   )
 }

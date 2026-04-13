@@ -26,8 +26,13 @@ func CalculateFloor(req model.FloorCalculationRequest, prices model.PriceTable) 
 		days = 1
 	}
 
+	materialPricePerM2 := getMaterialPrice(req.FloorType, prices)
+	materialCost := materialPricePerM2 * floorWithLoss
+
 	return model.FloorCalculationResponse{
-		LaborCost: labor,
+		LaborCost:    labor,
+		MaterialCost: materialCost,
+		TotalCost:    labor + materialCost,
 		Materials: model.Materials{
 			FloorM2:    floorWithLoss,
 			MortarBags: mortarBags,
@@ -48,5 +53,18 @@ func getBasePrice(floorType string, prices model.PriceTable) float64 {
 		return prices.VinylPrice
 	default:
 		return prices.OtherPrice
+	}
+}
+
+func getMaterialPrice(floorType string, prices model.PriceTable) float64 {
+	switch floorType {
+	case "porcelain", "porcelanato":
+		return prices.PorcelainMaterialPrice
+	case "ceramic", "ceramica":
+		return prices.CeramicMaterialPrice
+	case "vinyl", "vinilico":
+		return prices.VinylMaterialPrice
+	default:
+		return prices.OtherMaterialPrice
 	}
 }

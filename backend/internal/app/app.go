@@ -15,7 +15,7 @@ import (
 func NewRouter() http.Handler {
 	r := chi.NewRouter()
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000"},
+		AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:3001"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		AllowCredentials: true,
@@ -41,9 +41,12 @@ func NewRouter() http.Handler {
 		w.Write([]byte("🚀 API running"))
 	})
 
+	paintHandler := handler.NewPaintHandler(calcService)
+
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware)
 		r.Post("/calculate/floor", calcHandler.CalculateFloor)
+		r.Post("/calculate/paint", paintHandler.CalculatePaint)
 		r.Get("/projects", calcHandler.GetProjects)
 
 		r.Get("/prices", priceHandler.GetPrices)

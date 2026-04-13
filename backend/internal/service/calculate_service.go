@@ -18,7 +18,7 @@ func NewCalculateService(repo *repository.ProjectRepository, priceRepo *reposito
 	return &CalculateService{repo: repo, priceRepo: priceRepo}
 }
 
-func (s *CalculateService) CalculateFloor(req model.FloorCalculationRequest, userID int) (model.FloorCalculationResponse, error) {
+func (s *CalculateService) CalculateFloor(req model.FloorCalculationRequest, userID int, nosave bool) (model.FloorCalculationResponse, error) {
 	err := validateRequest(req)
 	if err != nil {
 		return model.FloorCalculationResponse{}, err
@@ -33,16 +33,17 @@ func (s *CalculateService) CalculateFloor(req model.FloorCalculationRequest, use
 	// 2. Enviamos os preços para a calculadora
 	result := calculator.CalculateFloor(req, *userPrices)
 
-	project := model.Project{
-		UserID:         userID,
-		FloorType:      req.FloorType,
-		Area:           req.Area,
-		RemoveOldFloor: req.RemoveOldFloor,
-		Environment:    req.Environment,
-		LaborCost:      result.LaborCost,
+	if !nosave {
+		project := model.Project{
+			UserID:         userID,
+			FloorType:      req.FloorType,
+			Area:           req.Area,
+			RemoveOldFloor: req.RemoveOldFloor,
+			Environment:    req.Environment,
+			LaborCost:      result.LaborCost,
+		}
+		s.repo.Save(project)
 	}
-
-	s.repo.Save(project)
 
 	return result, nil
 }
@@ -59,6 +60,22 @@ func validateRequest(req model.FloorCalculationRequest) error {
 	}
 
 	return nil
+}
+
+func (s *CalculateService) CalculatePaint(req model.PaintCalculationRequest, userID int) (model.PaintCalculationResponse, error) {
+	if req.Area <= 0 {
+		return model.PaintCalculationResponse{}, errors.New("area must be greater than zero")
+	}
+	if req.PaintType == "" {
+		return model.PaintCalculationResponse{}, errors.New("paint_type is required")
+	}
+
+	userPrices, err := s.priceRepo.GetByUserID(userID)
+	if err != nil {
+		return model.PaintCalculationResponse{}, err
+	}
+
+	return calculator.CalculatePaint(req, *userPrices), nil
 }
 
 func (s *CalculateService) GetProjects(userID int) ([]model.Project, error) {

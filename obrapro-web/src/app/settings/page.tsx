@@ -16,6 +16,16 @@ export default function SettingsPage() {
     ceramic_price: 70,
     vinyl_price: 60,
     other_price: 80,
+    porcelain_material_price: 80,
+    ceramic_material_price: 45,
+    vinyl_material_price: 55,
+    other_material_price: 60,
+    acrylic_paint_price: 12,
+    latex_paint_price: 10,
+    enamel_paint_price: 18,
+    paint_material_price: 25,
+    massa_corrida_price: 8,
+    fundo_price: 20,
   })
 
   useEffect(() => {
@@ -34,6 +44,16 @@ export default function SettingsPage() {
             ceramic_price: data.ceramic_price,
             vinyl_price: data.vinyl_price,
             other_price: data.other_price,
+            porcelain_material_price: data.porcelain_material_price ?? 80,
+            ceramic_material_price: data.ceramic_material_price ?? 45,
+            vinyl_material_price: data.vinyl_material_price ?? 55,
+            other_material_price: data.other_material_price ?? 60,
+            acrylic_paint_price: data.acrylic_paint_price ?? 12,
+            latex_paint_price: data.latex_paint_price ?? 10,
+            enamel_paint_price: data.enamel_paint_price ?? 18,
+            paint_material_price: data.paint_material_price ?? 25,
+            massa_corrida_price: data.massa_corrida_price ?? 8,
+            fundo_price: data.fundo_price ?? 20,
           })
         }
       } catch (err) {
@@ -203,6 +223,104 @@ export default function SettingsPage() {
                   />
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Card: Preços de Material */}
+          <div className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 rounded-xl bg-primary-container/20 flex items-center justify-center">
+                <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>storefront</span>
+              </div>
+              <div>
+                <h3 className="font-headline font-bold text-xl text-on-surface">Custo de Material</h3>
+                <p className="text-sm text-on-surface-variant font-medium">Preço de compra do material por metro quadrado (R$/m²)</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+              {[
+                { label: "Porcelanato R$/m²", name: "porcelain_material_price" },
+                { label: "Cerâmica R$/m²", name: "ceramic_material_price" },
+                { label: "Vinílico R$/m²", name: "vinyl_material_price" },
+                { label: "Outros R$/m²", name: "other_material_price" },
+              ].map((field) => (
+                <div key={field.name} className="space-y-2">
+                  <label className="block text-sm font-semibold text-on-surface-variant px-1">{field.label}</label>
+                  <div className="relative group">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
+                    <input
+                      name={field.name}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={(prices as any)[field.name]}
+                      onChange={handleChange}
+                      className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-primary-container/50 transition-all text-on-surface font-semibold text-lg placeholder:text-outline-variant outline-none"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Card: Mão de Obra — Pintura */}
+          <div className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 rounded-xl bg-secondary-container/30 flex items-center justify-center">
+                <span className="material-symbols-outlined text-secondary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>format_paint</span>
+              </div>
+              <div>
+                <h3 className="font-headline font-bold text-xl text-on-surface">Mão de Obra — Pintura</h3>
+                <p className="text-sm text-on-surface-variant font-medium">Valor cobrado por metro quadrado (R$/m²)</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
+              {[
+                { label: "Tinta Acrílica R$/m²", name: "acrylic_paint_price" },
+                { label: "Tinta Látex R$/m²", name: "latex_paint_price" },
+                { label: "Tinta Esmalte R$/m²", name: "enamel_paint_price" },
+              ].map((field) => (
+                <div key={field.name} className="space-y-2">
+                  <label className="block text-sm font-semibold text-on-surface-variant px-1">{field.label}</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
+                    <input name={field.name} type="number" min="0" step="0.01"
+                      value={(prices as any)[field.name]} onChange={handleChange}
+                      className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg outline-none" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Card: Material — Pintura */}
+          <div className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 rounded-xl bg-primary-container/20 flex items-center justify-center">
+                <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>water_drop</span>
+              </div>
+              <div>
+                <h3 className="font-headline font-bold text-xl text-on-surface">Material — Pintura</h3>
+                <p className="text-sm text-on-surface-variant font-medium">Custo de compra dos materiais de pintura</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
+              {[
+                { label: "Tinta R$/litro", name: "paint_material_price" },
+                { label: "Massa Corrida R$/kg", name: "massa_corrida_price" },
+                { label: "Fundo Preparador R$/litro", name: "fundo_price" },
+              ].map((field) => (
+                <div key={field.name} className="space-y-2">
+                  <label className="block text-sm font-semibold text-on-surface-variant px-1">{field.label}</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
+                    <input name={field.name} type="number" min="0" step="0.01"
+                      value={(prices as any)[field.name]} onChange={handleChange}
+                      className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg outline-none" />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

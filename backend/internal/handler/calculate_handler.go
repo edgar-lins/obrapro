@@ -29,8 +29,9 @@ func (h *CalculateHandler) CalculateFloor(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := utils.GetUserID(r.Context())
+	nosave := r.URL.Query().Get("nosave") == "true"
 
-	result, err := h.service.CalculateFloor(req, userID)
+	result, err := h.service.CalculateFloor(req, userID, nosave)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

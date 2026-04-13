@@ -15,6 +15,8 @@ type Materials struct {
 
 type FloorCalculationResponse struct {
 	LaborCost     float64   `json:"labor_cost"`
+	MaterialCost  float64   `json:"material_cost"`
+	TotalCost     float64   `json:"total_cost"`
 	Materials     Materials `json:"materials"`
 	EstimatedDays int       `json:"estimated_days"`
 }
