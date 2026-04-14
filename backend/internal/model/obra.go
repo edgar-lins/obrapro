@@ -38,12 +38,12 @@ type ObraStage struct {
 }
 
 type ObraExpense struct {
-	ID          int     `json:"id"`
-	ObraID      int     `json:"obra_id"`
-	Description string  `json:"description"`
-	Amount      float64 `json:"amount"`
-	Category    string  `json:"category"` // material | mao_de_obra | outro
-	CreatedAt   string  `json:"created_at"`
+	ID          int       `json:"id"`
+	ObraID      int       `json:"obra_id"`
+	Description string    `json:"description"`
+	Amount      float64   `json:"amount"`
+	Category    string    `json:"category"` // material | mao_de_obra | outro
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // Requests
