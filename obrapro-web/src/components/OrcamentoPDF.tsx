@@ -1,8 +1,8 @@
-import { CalculationResult, isFloorResult, isPaintResult } from "@/types/calculate"
+import { CalculationResult, isFloorResult, isPaintResult, isDemolitionResult } from "@/types/calculate"
 
 type EnvironmentItem = {
   id: string
-  serviceType: "piso" | "pintura"
+  serviceType: "piso" | "revestimento" | "pintura" | "demolicao"
   area: string
   environment: string
   floorType: string
@@ -11,6 +11,8 @@ type EnvironmentItem = {
   coats: number
   includeMassaCorrida: boolean
   includeFundo: boolean
+  demolitionType: string
+  includeDisposal: boolean
   result?: CalculationResult
 }
 
@@ -18,6 +20,11 @@ const paintTypeLabel: Record<string, string> = {
   acrilica: "Acrílica",
   latex: "Látex",
   esmalte: "Esmalte",
+}
+
+const demolitionTypeLabel: Record<string, string> = {
+  manual: "Manual",
+  mecanica: "Mecânica",
 }
 
 type Props = {
@@ -130,21 +137,31 @@ export default function OrcamentoPDF({
             {environments.filter(e => e.result).map((env) => (
               <tr key={env.id} className="border-b border-outline-variant/40">
                 <td className="py-3 font-medium text-on-surface">
-                  {env.serviceType === "pintura"
-                    ? <>Pintura {paintTypeLabel[env.paintType] || env.paintType} — {env.coats} {env.coats === 1 ? "demão" : "demãos"}</>
-                    : <>Assentamento de {floorTypeLabel[env.floorType] || env.floorType}</>
-                  }
+                  {env.serviceType === "pintura" && (
+                    <>Pintura {paintTypeLabel[env.paintType] || env.paintType} — {env.coats} {env.coats === 1 ? "demão" : "demãos"}</>
+                  )}
+                  {(env.serviceType === "piso" || env.serviceType === "revestimento") && (
+                    <>Assentamento de {floorTypeLabel[env.floorType] || env.floorType}{env.serviceType === "revestimento" ? " (Parede)" : ""}</>
+                  )}
+                  {env.serviceType === "demolicao" && (
+                    <>Demolição {demolitionTypeLabel[env.demolitionType] || env.demolitionType}</>
+                  )}
                   {env.serviceType === "piso" && env.removeOldFloor && <span className="block text-xs text-on-surface-variant">+ Remoção de piso antigo</span>}
                   {env.serviceType === "pintura" && (env.includeMassaCorrida || env.includeFundo) && (
                     <span className="block text-xs text-on-surface-variant">
                       {[env.includeMassaCorrida && "massa corrida", env.includeFundo && "fundo preparador"].filter(Boolean).join(" + ")}
                     </span>
                   )}
+                  {env.serviceType === "demolicao" && env.includeDisposal && (
+                    <span className="block text-xs text-on-surface-variant">+ Descarte de entulho</span>
+                  )}
                 </td>
                 <td className="py-3 text-center text-on-surface-variant text-xs">{environmentLabel[env.environment] || env.environment}</td>
                 <td className="py-3 text-right font-semibold">{env.area} m²</td>
                 <td className="py-3 text-right text-on-surface">{fmt(env.result!.labor_cost)}</td>
-                <td className="py-3 text-right text-on-surface">{fmt(env.result!.material_cost)}</td>
+                <td className="py-3 text-right text-on-surface">
+                  {isDemolitionResult(env.result!) ? "—" : fmt((env.result as any).material_cost)}
+                </td>
                 <td className="py-3 text-right font-bold text-on-surface">{fmt(env.result!.total_cost)}</td>
               </tr>
             ))}
@@ -161,7 +178,7 @@ export default function OrcamentoPDF({
       </div>
 
       {/* Materiais por Ambiente */}
-      {environments.filter(e => e.result).map((env) => (
+      {environments.filter(e => e.result && !isDemolitionResult(e.result!)).map((env) => (
         <div key={env.id} className="mb-6 p-5 bg-surface-container-low rounded-xl">
           <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-3">
             Materiais — {environmentLabel[env.environment] || env.environment} ({env.area} m²)
@@ -171,7 +188,7 @@ export default function OrcamentoPDF({
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-0.5">Revestimento</p>
                 <p className="text-base font-headline font-bold">{env.result.materials.floor_m2.toFixed(1)} m²</p>
-                <p className="text-[10px] text-on-surface-variant">+10% quebra</p>
+                <p className="text-[10px] text-on-surface-variant">+{env.serviceType === "revestimento" ? "12" : "10"}% quebra</p>
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-0.5">Argamassa</p>

@@ -26,7 +26,14 @@ type PriceTable struct {
 	LatexPaintPrice   float64 `json:"latex_paint_price"`
 	EnamelPaintPrice  float64 `json:"enamel_paint_price"`
 	// Preços de material de pintura
-	PaintMaterialPrice  float64 `json:"paint_material_price"`  // tinta (por litro)
-	MassaCorridaPrice   float64 `json:"massa_corrida_price"`   // massa corrida (por kg)
-	FundoPrice          float64 `json:"fundo_price"`           // fundo preparador (por litro)
+	PaintMaterialPrice float64 `json:"paint_material_price"` // tinta (por litro)
+	MassaCorridaPrice  float64 `json:"massa_corrida_price"`  // massa corrida (por kg)
+	FundoPrice         float64 `json:"fundo_price"`          // fundo preparador (por litro)
+	// Revestimento de parede — mão de obra (por m²)
+	WallPorcelainPrice float64 `json:"wall_porcelain_price"`
+	WallCeramicPrice   float64 `json:"wall_ceramic_price"`
+	WallOtherPrice     float64 `json:"wall_other_price"`
+	// Demolição — mão de obra (por m²)
+	DemolitionManualPrice    float64 `json:"demolition_manual_price"`
+	DemolitionMechanicalPrice float64 `json:"demolition_mechanical_price"`
 }

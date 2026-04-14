@@ -23,7 +23,9 @@ func (r *PriceRepository) GetByUserID(userID int) (*model.PriceTable, error) {
 		COALESCE(porcelain_material_price, 80), COALESCE(ceramic_material_price, 45),
 		COALESCE(vinyl_material_price, 55), COALESCE(other_material_price, 60),
 		COALESCE(acrylic_paint_price, 12), COALESCE(latex_paint_price, 10), COALESCE(enamel_paint_price, 18),
-		COALESCE(paint_material_price, 25), COALESCE(massa_corrida_price, 8), COALESCE(fundo_price, 20)
+		COALESCE(paint_material_price, 25), COALESCE(massa_corrida_price, 8), COALESCE(fundo_price, 20),
+		COALESCE(wall_porcelain_price, 130), COALESCE(wall_ceramic_price, 90), COALESCE(wall_other_price, 100),
+		COALESCE(demolition_manual_price, 25), COALESCE(demolition_mechanical_price, 40)
 	FROM price_tables
 	WHERE user_id = $1
 	`
@@ -35,6 +37,8 @@ func (r *PriceRepository) GetByUserID(userID int) (*model.PriceTable, error) {
 		&pt.PorcelainMaterialPrice, &pt.CeramicMaterialPrice, &pt.VinylMaterialPrice, &pt.OtherMaterialPrice,
 		&pt.AcrylicPaintPrice, &pt.LatexPaintPrice, &pt.EnamelPaintPrice,
 		&pt.PaintMaterialPrice, &pt.MassaCorridaPrice, &pt.FundoPrice,
+		&pt.WallPorcelainPrice, &pt.WallCeramicPrice, &pt.WallOtherPrice,
+		&pt.DemolitionManualPrice, &pt.DemolitionMechanicalPrice,
 	)
 
 	if err != nil {
@@ -43,6 +47,8 @@ func (r *PriceRepository) GetByUserID(userID int) (*model.PriceTable, error) {
 			PorcelainMaterialPrice: 80, CeramicMaterialPrice: 45, VinylMaterialPrice: 55, OtherMaterialPrice: 60,
 			AcrylicPaintPrice: 12, LatexPaintPrice: 10, EnamelPaintPrice: 18,
 			PaintMaterialPrice: 25, MassaCorridaPrice: 8, FundoPrice: 20,
+			WallPorcelainPrice: 130, WallCeramicPrice: 90, WallOtherPrice: 100,
+			DemolitionManualPrice: 25, DemolitionMechanicalPrice: 40,
 		}, nil
 	}
 
@@ -56,9 +62,11 @@ func (r *PriceRepository) Upsert(pt model.PriceTable) error {
 		user_id, porcelain_price, ceramic_price, vinyl_price, other_price,
 		porcelain_material_price, ceramic_material_price, vinyl_material_price, other_material_price,
 		acrylic_paint_price, latex_paint_price, enamel_paint_price,
-		paint_material_price, massa_corrida_price, fundo_price
+		paint_material_price, massa_corrida_price, fundo_price,
+		wall_porcelain_price, wall_ceramic_price, wall_other_price,
+		demolition_manual_price, demolition_mechanical_price
 	)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 	ON CONFLICT (user_id)
 	DO UPDATE SET
 		porcelain_price = EXCLUDED.porcelain_price,
@@ -75,6 +83,11 @@ func (r *PriceRepository) Upsert(pt model.PriceTable) error {
 		paint_material_price = EXCLUDED.paint_material_price,
 		massa_corrida_price = EXCLUDED.massa_corrida_price,
 		fundo_price = EXCLUDED.fundo_price,
+		wall_porcelain_price = EXCLUDED.wall_porcelain_price,
+		wall_ceramic_price = EXCLUDED.wall_ceramic_price,
+		wall_other_price = EXCLUDED.wall_other_price,
+		demolition_manual_price = EXCLUDED.demolition_manual_price,
+		demolition_mechanical_price = EXCLUDED.demolition_mechanical_price,
 		updated_at = CURRENT_TIMESTAMP;
 	`
 	_, err := r.db.Exec(context.Background(), query,
@@ -83,6 +96,8 @@ func (r *PriceRepository) Upsert(pt model.PriceTable) error {
 		pt.PorcelainMaterialPrice, pt.CeramicMaterialPrice, pt.VinylMaterialPrice, pt.OtherMaterialPrice,
 		pt.AcrylicPaintPrice, pt.LatexPaintPrice, pt.EnamelPaintPrice,
 		pt.PaintMaterialPrice, pt.MassaCorridaPrice, pt.FundoPrice,
+		pt.WallPorcelainPrice, pt.WallCeramicPrice, pt.WallOtherPrice,
+		pt.DemolitionManualPrice, pt.DemolitionMechanicalPrice,
 	)
 	return err
 }

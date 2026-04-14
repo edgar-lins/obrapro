@@ -62,6 +62,28 @@ func validateRequest(req model.FloorCalculationRequest) error {
 	return nil
 }
 
+func (s *CalculateService) CalculateWall(req model.FloorCalculationRequest, userID int) (model.FloorCalculationResponse, error) {
+	if err := validateRequest(req); err != nil {
+		return model.FloorCalculationResponse{}, err
+	}
+	userPrices, err := s.priceRepo.GetByUserID(userID)
+	if err != nil {
+		return model.FloorCalculationResponse{}, err
+	}
+	return calculator.CalculateWall(req, *userPrices), nil
+}
+
+func (s *CalculateService) CalculateDemolition(req model.DemolitionRequest, userID int) (model.DemolitionResponse, error) {
+	if req.Area <= 0 {
+		return model.DemolitionResponse{}, errors.New("area must be greater than zero")
+	}
+	userPrices, err := s.priceRepo.GetByUserID(userID)
+	if err != nil {
+		return model.DemolitionResponse{}, err
+	}
+	return calculator.CalculateDemolition(req, *userPrices), nil
+}
+
 func (s *CalculateService) CalculatePaint(req model.PaintCalculationRequest, userID int) (model.PaintCalculationResponse, error) {
 	if req.Area <= 0 {
 		return model.PaintCalculationResponse{}, errors.New("area must be greater than zero")

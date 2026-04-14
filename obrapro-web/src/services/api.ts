@@ -7,6 +7,32 @@ async function throwIfNotOk(res: Response) {
     }
 }
 
+export async function calculateWall(data: any, token?: string) {
+    const res = await fetch(`${API_URL}/calculate/wall`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify(data),
+    })
+    await throwIfNotOk(res)
+    return res.json()
+}
+
+export async function calculateDemolition(data: any, token?: string) {
+    const res = await fetch(`${API_URL}/calculate/demolition`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify(data),
+    })
+    await throwIfNotOk(res)
+    return res.json()
+}
+
 export async function calculatePaint(data: any, token?: string) {
     const res = await fetch(`${API_URL}/calculate/paint`, {
         method: "POST",

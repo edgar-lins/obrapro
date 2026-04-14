@@ -42,11 +42,15 @@ func NewRouter() http.Handler {
 	})
 
 	paintHandler := handler.NewPaintHandler(calcService)
+	wallHandler := handler.NewWallHandler(calcService)
+	demolitionHandler := handler.NewDemolitionHandler(calcService)
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware)
 		r.Post("/calculate/floor", calcHandler.CalculateFloor)
 		r.Post("/calculate/paint", paintHandler.CalculatePaint)
+		r.Post("/calculate/wall", wallHandler.CalculateWall)
+		r.Post("/calculate/demolition", demolitionHandler.CalculateDemolition)
 		r.Get("/projects", calcHandler.GetProjects)
 
 		r.Get("/prices", priceHandler.GetPrices)

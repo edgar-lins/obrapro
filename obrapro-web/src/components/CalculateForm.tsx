@@ -1,19 +1,19 @@
 "use client"
 
 import { useState } from "react"
-import { calculateFloor, calculatePaint } from "@/services/api"
-import { CalculationResult, isFloorResult, isPaintResult } from "@/types/calculate"
+import { calculateFloor, calculatePaint, calculateWall, calculateDemolition } from "@/services/api"
+import { CalculationResult, isFloorResult, isPaintResult, isDemolitionResult } from "@/types/calculate"
 import Link from "next/link"
 import OrcamentoPDF from "@/components/OrcamentoPDF"
 
-type ServiceType = "piso" | "pintura"
+type ServiceType = "piso" | "revestimento" | "pintura" | "demolicao"
 
 type EnvironmentItem = {
   id: string
   serviceType: ServiceType
   area: string
   environment: string
-  // Piso
+  // Piso / Revestimento de parede
   floorType: string
   removeOldFloor: boolean
   // Pintura
@@ -21,6 +21,9 @@ type EnvironmentItem = {
   coats: number
   includeMassaCorrida: boolean
   includeFundo: boolean
+  // Demolição
+  demolitionType: string
+  includeDisposal: boolean
   result?: CalculationResult
 }
 
@@ -55,6 +58,8 @@ function newEnv(id: string): EnvironmentItem {
     coats: 2,
     includeMassaCorrida: false,
     includeFundo: false,
+    demolitionType: "manual",
+    includeDisposal: false,
   }
 }
 
@@ -72,7 +77,7 @@ export default function CalculateForm() {
   const isMulti = environments.length > 1
 
   const totalLabor = environments.reduce((s, e) => s + (e.result?.labor_cost ?? 0), 0)
-  const totalMaterial = environments.reduce((s, e) => s + (e.result?.material_cost ?? 0), 0)
+  const totalMaterial = environments.reduce((s, e) => s + ((e.result as any)?.material_cost ?? 0), 0)
   const totalCost = environments.reduce((s, e) => s + (e.result?.total_cost ?? 0), 0)
   const totalDays = environments.reduce((s, e) => s + (e.result?.estimated_days ?? 0), 0)
 
@@ -102,14 +107,27 @@ export default function CalculateForm() {
     try {
       const results = await Promise.all(
         environments.map((env) => {
+          const area = Number(env.area)
           if (env.serviceType === "pintura") {
             return calculatePaint(
-              { paint_type: env.paintType, area: Number(env.area), coats: env.coats, include_massa_corrida: env.includeMassaCorrida, include_fundo: env.includeFundo, environment: env.environment },
+              { paint_type: env.paintType, area, coats: env.coats, include_massa_corrida: env.includeMassaCorrida, include_fundo: env.includeFundo, environment: env.environment },
+              token,
+            )
+          }
+          if (env.serviceType === "revestimento") {
+            return calculateWall(
+              { floor_type: env.floorType, area, remove_old_floor: env.removeOldFloor, environment: env.environment },
+              token,
+            )
+          }
+          if (env.serviceType === "demolicao") {
+            return calculateDemolition(
+              { area, type: env.demolitionType, include_disposal: env.includeDisposal, environment: env.environment },
               token,
             )
           }
           return calculateFloor(
-            { floor_type: env.floorType, area: Number(env.area), remove_old_floor: env.removeOldFloor, environment: env.environment },
+            { floor_type: env.floorType, area, remove_old_floor: env.removeOldFloor, environment: env.environment },
             token,
             isMulti,
           )
@@ -204,9 +222,11 @@ export default function CalculateForm() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="w-6 h-6 rounded-full bg-primary-container text-on-primary text-xs font-bold flex items-center justify-center">{index + 1}</span>
-                    <span className="material-symbols-outlined text-[18px] text-primary">{env.serviceType === "pintura" ? "format_paint" : "layers"}</span>
+                    <span className="material-symbols-outlined text-[18px] text-primary">
+                      {{ piso: "layers", revestimento: "wall", pintura: "format_paint", demolicao: "construction" }[env.serviceType]}
+                    </span>
                     <span className="text-sm font-bold text-on-surface capitalize">
-                      {env.serviceType === "pintura" ? "Pintura" : ENV_OPTIONS.find(o => o.value === env.environment)?.label.split(" ")[0] ?? "Piso"}
+                      {{ piso: "Piso", revestimento: "Revestimento", pintura: "Pintura", demolicao: "Demolição" }[env.serviceType]}
                     </span>
                   </div>
                   {environments.length > 1 && (
@@ -222,8 +242,10 @@ export default function CalculateForm() {
                   <label className="block text-sm font-bold text-on-surface">Tipo de Serviço</label>
                   <div className="grid grid-cols-2 gap-3">
                     {[
-                      { value: "piso", label: "Piso", icon: "layers" },
-                      { value: "pintura", label: "Pintura", icon: "format_paint" },
+                      { value: "piso",         label: "Piso",        icon: "layers" },
+                      { value: "revestimento", label: "Revestimento", icon: "wall" },
+                      { value: "pintura",      label: "Pintura",      icon: "format_paint" },
+                      { value: "demolicao",    label: "Demolição",    icon: "construction" },
                     ].map((opt) => (
                       <button key={opt.value} type="button"
                         onClick={() => updateEnv(env.id, { serviceType: opt.value as ServiceType })}
@@ -258,8 +280,8 @@ export default function CalculateForm() {
                   </div>
                 </div>
 
-                {/* Campos de Piso */}
-                {env.serviceType === "piso" && (<>
+                {/* Campos de Piso / Revestimento de Parede */}
+                {(env.serviceType === "piso" || env.serviceType === "revestimento") && (<>
                   <div className="space-y-3">
                     <label className="block text-sm font-bold text-on-surface">Tipo de Revestimento</label>
                     <div className="grid grid-cols-3 gap-3">
@@ -279,7 +301,9 @@ export default function CalculateForm() {
                         <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>delete_sweep</span>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-on-surface">Remover Piso Antigo</p>
+                        <p className="text-sm font-bold text-on-surface">
+                          {env.serviceType === "revestimento" ? "Remover Revestimento Antigo" : "Remover Piso Antigo"}
+                        </p>
                         <p className="text-[11px] text-on-surface-variant mt-0.5">Inclui demolição e descarte (+30%)</p>
                       </div>
                     </div>
@@ -343,18 +367,57 @@ export default function CalculateForm() {
                   </div>
                 </>)}
 
+                {/* Campos de Demolição */}
+                {env.serviceType === "demolicao" && (<>
+                  <div className="space-y-3">
+                    <label className="block text-sm font-bold text-on-surface">Tipo de Demolição</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { value: "manual",   label: "Manual",   icon: "hardware",     sub: "Ferramentas manuais" },
+                        { value: "mecanica", label: "Mecânica", icon: "precision_manufacturing", sub: "Equipamento pesado" },
+                      ].map((opt) => (
+                        <button key={opt.value} type="button" onClick={() => updateEnv(env.id, { demolitionType: opt.value })}
+                          className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${env.demolitionType === opt.value ? "border-primary-container bg-surface-container-low text-primary" : "border-transparent bg-surface-container-low/50 text-on-surface-variant hover:border-surface-variant"}`}>
+                          <span className="material-symbols-outlined mb-1 text-[22px]" style={{ fontVariationSettings: env.demolitionType === opt.value ? "'FILL' 1" : "'FILL' 0" }}>{opt.icon}</span>
+                          <span className="text-xs font-bold">{opt.label}</span>
+                          <span className="text-[10px] text-on-surface-variant mt-0.5">{opt.sub}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-xl border border-outline-variant/10">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-secondary-container/20 rounded-lg text-secondary">
+                        <span className="material-symbols-outlined text-[20px]">delete_forever</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-on-surface">Retirada de Entulho</p>
+                        <p className="text-[11px] text-on-surface-variant mt-0.5">Inclui transporte e descarte (+25%)</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" checked={env.includeDisposal}
+                        onChange={(e) => updateEnv(env.id, { includeDisposal: e.target.checked })} />
+                      <div className="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+                    </label>
+                  </div>
+                </>)}
+
                 {/* Resultado inline do ambiente (após calcular) */}
                 {env.result && (
                   <div className="mt-2 pt-4 border-t border-outline-variant/20 space-y-3">
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className={`grid gap-3 ${isDemolitionResult(env.result) ? "grid-cols-2" : "grid-cols-3"}`}>
                       <div className="text-center p-3 bg-surface-container-low rounded-xl">
                         <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Mão de Obra</p>
                         <p className="text-sm font-headline font-extrabold text-on-surface">{fmt(env.result.labor_cost)}</p>
                       </div>
-                      <div className="text-center p-3 bg-surface-container-low rounded-xl">
-                        <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Material</p>
-                        <p className="text-sm font-headline font-extrabold text-on-surface">{fmt(env.result.material_cost)}</p>
-                      </div>
+                      {!isDemolitionResult(env.result) && (
+                        <div className="text-center p-3 bg-surface-container-low rounded-xl">
+                          <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Material</p>
+                          <p className="text-sm font-headline font-extrabold text-on-surface">{fmt((env.result as any).material_cost)}</p>
+                        </div>
+                      )}
                       <div className="text-center p-3 bg-primary-container/20 rounded-xl">
                         <p className="text-[10px] uppercase tracking-wider text-primary font-bold mb-1">Total</p>
                         <p className="text-sm font-headline font-extrabold text-primary">{fmt(env.result.total_cost)}</p>
@@ -436,15 +499,17 @@ export default function CalculateForm() {
                 <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-2">Cálculo Finalizado</h2>
                 <div className="font-headline font-extrabold text-4xl text-on-surface">{fmt(environments[0].result.total_cost)}</div>
                 <div className="text-sm text-on-surface-variant mt-1 font-medium">Custo total estimado</div>
-                <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-outline-variant/20">
+                <div className={`grid gap-4 mt-6 pt-6 border-t border-outline-variant/20 ${isDemolitionResult(environments[0].result) ? "grid-cols-1" : "grid-cols-2"}`}>
                   <div>
                     <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Mão de Obra</p>
                     <p className="font-semibold text-on-surface">{fmt(environments[0].result.labor_cost)}</p>
                   </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Material</p>
-                    <p className="font-semibold text-on-surface">{fmt(environments[0].result.material_cost)}</p>
-                  </div>
+                  {!isDemolitionResult(environments[0].result) && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-1">Material</p>
+                      <p className="font-semibold text-on-surface">{fmt((environments[0].result as any).material_cost)}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 

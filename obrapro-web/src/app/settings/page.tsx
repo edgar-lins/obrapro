@@ -26,6 +26,11 @@ export default function SettingsPage() {
     paint_material_price: 25,
     massa_corrida_price: 8,
     fundo_price: 20,
+    wall_porcelain_price: 130,
+    wall_ceramic_price: 90,
+    wall_other_price: 100,
+    demolition_manual_price: 25,
+    demolition_mechanical_price: 40,
   })
 
   useEffect(() => {
@@ -54,6 +59,11 @@ export default function SettingsPage() {
             paint_material_price: data.paint_material_price ?? 25,
             massa_corrida_price: data.massa_corrida_price ?? 8,
             fundo_price: data.fundo_price ?? 20,
+            wall_porcelain_price: data.wall_porcelain_price ?? 130,
+            wall_ceramic_price: data.wall_ceramic_price ?? 90,
+            wall_other_price: data.wall_other_price ?? 100,
+            demolition_manual_price: data.demolition_manual_price ?? 25,
+            demolition_mechanical_price: data.demolition_mechanical_price ?? 40,
           })
         }
       } catch (err) {
@@ -318,6 +328,65 @@ export default function SettingsPage() {
                     <input name={field.name} type="number" min="0" step="0.01"
                       value={(prices as any)[field.name]} onChange={handleChange}
                       className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg outline-none" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Card: Mão de Obra — Revestimento de Parede */}
+          <div className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 rounded-xl bg-secondary-container flex items-center justify-center">
+                <span className="material-symbols-outlined text-on-secondary-container text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>wall</span>
+              </div>
+              <div>
+                <h3 className="font-headline font-bold text-xl text-on-surface">Mão de Obra — Revestimento de Parede</h3>
+                <p className="text-sm text-on-surface-variant font-medium">Valor cobrado por metro quadrado (R$/m²)</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
+              {[
+                { label: "Porcelanato R$/m²", name: "wall_porcelain_price" },
+                { label: "Cerâmica R$/m²", name: "wall_ceramic_price" },
+                { label: "Outros R$/m²", name: "wall_other_price" },
+              ].map((field) => (
+                <div key={field.name} className="space-y-2">
+                  <label className="block text-sm font-semibold text-on-surface-variant px-1">{field.label}</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
+                    <input name={field.name} type="number" min="0" step="0.01"
+                      value={(prices as any)[field.name]} onChange={handleChange}
+                      className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg outline-none" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Card: Demolição */}
+          <div className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 rounded-xl bg-error-container/30 flex items-center justify-center">
+                <span className="material-symbols-outlined text-error text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>construction</span>
+              </div>
+              <div>
+                <h3 className="font-headline font-bold text-xl text-on-surface">Demolição</h3>
+                <p className="text-sm text-on-surface-variant font-medium">Valor cobrado por metro quadrado (R$/m²)</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+              {[
+                { label: "Manual R$/m²", name: "demolition_manual_price" },
+                { label: "Mecânica R$/m²", name: "demolition_mechanical_price" },
+              ].map((field) => (
+                <div key={field.name} className="space-y-2">
+                  <label className="block text-sm font-semibold text-on-surface-variant px-1">{field.label}</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
+                    <input name={field.name} type="number" min="0" step="0.01"
+                      value={(prices as any)[field.name]} onChange={handleChange}
+                      className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-error-container/50 transition-all text-on-surface font-semibold text-lg outline-none" />
                   </div>
                 </div>
               ))}
