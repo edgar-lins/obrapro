@@ -31,10 +31,15 @@ func (s *AuthService) Register(email, password string) error {
 	return s.repo.Create(user)
 }
 
-func (s *AuthService) Login(email, password string) (string, error) {
+type LoginResult struct {
+	Token string `json:"token"`
+	Plan  string `json:"plan"`
+}
+
+func (s *AuthService) Login(email, password string) (LoginResult, error) {
 	user, err := s.repo.FindByEmail(email)
 	if err != nil {
-		return "", errors.New("invalid credentials")
+		return LoginResult{}, errors.New("invalid credentials")
 	}
 
 	err = bcrypt.CompareHashAndPassword(
@@ -42,13 +47,13 @@ func (s *AuthService) Login(email, password string) (string, error) {
 		[]byte(password),
 	)
 	if err != nil {
-		return "", errors.New("invalid credentials")
+		return LoginResult{}, errors.New("invalid credentials")
 	}
 
 	token, err := utils.GenerateToken(user.ID)
 	if err != nil {
-		return "", err
+		return LoginResult{}, err
 	}
 
-	return token, nil
+	return LoginResult{Token: token, Plan: user.Plan}, nil
 }

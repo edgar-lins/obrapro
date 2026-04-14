@@ -147,6 +147,25 @@ export async function getPrices(token: string) {
     return res.json()
 }
 
+// ── Billing ────────────────────────────────────────────────────────────────
+
+export async function getBillingStatus(token: string) {
+    const res = await fetch(`${API_URL}/billing/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+    })
+    await throwIfNotOk(res)
+    return res.json()
+}
+
+export async function createCheckout(token: string) {
+    const res = await fetch(`${API_URL}/billing/checkout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+    })
+    await throwIfNotOk(res)
+    return res.json()
+}
+
 export async function updatePrices(data: any, token: string) {
     const res = await fetch(`${API_URL}/prices`, {
         method: "PUT",

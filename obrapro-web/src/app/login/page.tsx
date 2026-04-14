@@ -29,7 +29,8 @@ export default function LoginPage() {
 
       const data = await res.json()
       localStorage.setItem("obrapro_token", data.token)
-      router.push("/dashboard") 
+      localStorage.setItem("obrapro_plan", data.plan ?? "free")
+      router.push("/dashboard")
     } catch (err: any) {
       setError(err.message)
     } finally {

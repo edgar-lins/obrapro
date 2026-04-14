@@ -46,7 +46,9 @@ func NewRouter() http.Handler {
 	demolitionHandler := handler.NewDemolitionHandler(calcService)
 
 	obraRepo := repository.NewObraRepository(db)
-	obraHandler := handler.NewObraHandler(obraRepo)
+	obraHandler := handler.NewObraHandler(obraRepo, userRepo)
+
+	billingHandler := handler.NewBillingHandler(userRepo)
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware)
@@ -65,7 +67,13 @@ func NewRouter() http.Handler {
 		r.Put("/obras/{id}/status", obraHandler.UpdateStatus)
 		r.Put("/obras/{id}/stages/{stageId}/status", obraHandler.UpdateStageStatus)
 		r.Post("/obras/{id}/expenses", obraHandler.AddExpense)
+
+		r.Get("/billing/status", billingHandler.GetStatus)
+		r.Post("/billing/checkout", billingHandler.CreateCheckout)
 	})
+
+	// Webhook sem auth (Stripe assina com segredo próprio)
+	r.Post("/billing/webhook", billingHandler.Webhook)
 
 	return r
 }

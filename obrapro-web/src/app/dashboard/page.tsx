@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { getObras } from "@/services/api"
 
+const FREE_LIMIT = 3
+
 export default function DashboardPage() {
   const router = useRouter()
   const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [plan, setPlan] = useState("free")
 
   useEffect(() => {
     const token = localStorage.getItem("obrapro_token")
@@ -17,6 +20,9 @@ export default function DashboardPage() {
       router.push("/login")
       return
     }
+
+    const savedPlan = localStorage.getItem("obrapro_plan") ?? "free"
+    setPlan(savedPlan)
 
     async function fetchProjects() {
       try {
@@ -86,6 +92,10 @@ export default function DashboardPage() {
 
         <div className="flex items-center gap-4">
           <button onClick={handleLogout} className="material-symbols-outlined text-on-surface-variant hover:text-error transition-colors" title="Sair">logout</button>
+          <Link href="/planos" className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${plan === "pro" ? "bg-primary text-on-primary" : "bg-surface-container-highest text-on-surface-variant hover:bg-primary-container/20 hover:text-primary"}`}>
+            <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
+            {plan === "pro" ? "Pro" : "Free"}
+          </Link>
           <div className="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden flex items-center justify-center text-primary font-bold">
             OP
           </div>
@@ -106,6 +116,34 @@ export default function DashboardPage() {
         </section>
 
         {error && <div className="mb-8 p-4 bg-error-container text-on-error-container rounded-lg font-medium">{error}</div>}
+
+        {/* Freemium Banner */}
+        {plan === "free" && (
+          <div className={`mb-8 rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border ${totalJobs >= FREE_LIMIT ? "bg-error-container/10 border-error/20" : "bg-primary-container/10 border-primary-container/20"}`}>
+            <div className="flex items-center gap-3">
+              <span className={`material-symbols-outlined ${totalJobs >= FREE_LIMIT ? "text-error" : "text-primary"}`} style={{ fontVariationSettings: "'FILL' 1" }}>
+                {totalJobs >= FREE_LIMIT ? "lock" : "workspace_premium"}
+              </span>
+              <div>
+                {totalJobs >= FREE_LIMIT ? (
+                  <>
+                    <p className="font-bold text-on-surface text-sm">Limite do plano gratuito atingido</p>
+                    <p className="text-xs text-on-surface-variant">Você usou as {FREE_LIMIT} obras do plano Free. Faça upgrade para continuar.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-bold text-on-surface text-sm">Plano Gratuito — {FREE_LIMIT - totalJobs} {FREE_LIMIT - totalJobs === 1 ? "obra restante" : "obras restantes"}</p>
+                    <p className="text-xs text-on-surface-variant">Upgrade para o Pro e tenha obras ilimitadas.</p>
+                  </>
+                )}
+              </div>
+            </div>
+            <Link href="/planos"
+              className="shrink-0 px-5 py-2.5 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">
+              Ver Planos
+            </Link>
+          </div>
+        )}
 
         {/* Stats Bento Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-16">

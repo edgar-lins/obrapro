@@ -3,11 +3,20 @@ package model
 import "time"
 
 type User struct {
-	ID        int       `json:"id"`
-	Email     string    `json:"email"`
-	Password  string    `json:"-"`
-	CreatedAt time.Time `json:"created_at"`
+	ID               int        `json:"id"`
+	Email            string     `json:"email"`
+	Password         string     `json:"-"`
+	Plan             string     `json:"plan"` // free | pro
+	StripeCustomerID string     `json:"-"`
+	PlanExpiresAt    *time.Time `json:"plan_expires_at,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
 }
+
+const (
+	PlanFree = "free"
+	PlanPro  = "pro"
+	FreeObraLimit = 3
+)
 
 type PriceTable struct {
 	ID             int     `json:"id"`

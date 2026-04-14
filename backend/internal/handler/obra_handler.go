@@ -12,11 +12,12 @@ import (
 )
 
 type ObraHandler struct {
-	repo *repository.ObraRepository
+	repo     *repository.ObraRepository
+	userRepo *repository.UserRepository
 }
 
-func NewObraHandler(repo *repository.ObraRepository) *ObraHandler {
-	return &ObraHandler{repo: repo}
+func NewObraHandler(repo *repository.ObraRepository, userRepo *repository.UserRepository) *ObraHandler {
+	return &ObraHandler{repo: repo, userRepo: userRepo}
 }
 
 func (h *ObraHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -34,6 +35,31 @@ func (h *ObraHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if len(req.Stages) == 0 {
 		http.Error(w, "at least one stage is required", http.StatusBadRequest)
 		return
+	}
+
+	// Check plan limits
+	user, err := h.userRepo.FindByID(userID)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusInternalServerError)
+		return
+	}
+	if user.Plan == model.PlanFree {
+		count, err := h.repo.CountByUser(userID)
+		if err != nil {
+			http.Error(w, "could not check obra limit", http.StatusInternalServerError)
+			return
+		}
+		if count >= model.FreeObraLimit {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusPaymentRequired)
+			json.NewEncoder(w).Encode(map[string]any{
+				"error":     "plan_limit_reached",
+				"message":   "Limite do plano gratuito atingido. Faça upgrade para o plano Pro.",
+				"limit":     model.FreeObraLimit,
+				"plan":      model.PlanFree,
+			})
+			return
+		}
 	}
 
 	obra, err := h.repo.Create(req, userID)

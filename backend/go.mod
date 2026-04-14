@@ -4,7 +4,10 @@ go 1.25.5
 
 require github.com/go-chi/chi v1.5.5
 
-require github.com/rs/cors v1.11.1 // indirect
+require (
+	github.com/rs/cors v1.11.1 // indirect
+	github.com/stripe/stripe-go/v82 v82.5.1 // indirect
+)
 
 require (
 	github.com/go-chi/cors v1.2.2

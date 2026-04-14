@@ -15,6 +15,14 @@ func NewObraRepository(db *pgxpool.Pool) *ObraRepository {
 	return &ObraRepository{db: db}
 }
 
+func (r *ObraRepository) CountByUser(userID int) (int, error) {
+	var count int
+	err := r.db.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM obras WHERE user_id=$1", userID,
+	).Scan(&count)
+	return count, err
+}
+
 func (r *ObraRepository) Create(req model.CreateObraRequest, userID int) (model.Obra, error) {
 	ctx := context.Background()
 

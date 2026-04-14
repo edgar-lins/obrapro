@@ -196,7 +196,12 @@ export default function CalculateForm() {
 
       router.push(`/obra/${obra.id}`)
     } catch (err: any) {
-      setSaveError(err?.message ?? "Erro ao guardar obra.")
+      const msg = err?.message ?? ""
+      if (msg.includes("402") || msg.includes("plan_limit")) {
+        router.push("/planos?limit=1")
+      } else {
+        setSaveError(msg || "Erro ao guardar obra.")
+      }
     } finally {
       setSaving(false)
     }
