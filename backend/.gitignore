@@ -1,0 +1,9 @@
+# Binários compilados
+/bin/
+*.exe
+
+# Ambiente local (nunca commitar)
+.env
+
+# macOS
+.DS_Store

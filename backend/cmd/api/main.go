@@ -6,9 +6,13 @@ import (
 
 	"github.com/edgar-lins/obrapro/internal/app"
 	"github.com/edgar-lins/obrapro/pkg/utils"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Carrega .env se existir (silencioso em produção)
+	godotenv.Load()
+
 	utils.InitLogger()
 	utils.Log.Info("starting ObraPro API")
 
