@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { calculateFloor, calculatePaint, calculateWall, calculateDemolition } from "@/services/api"
+import { useRouter } from "next/navigation"
+import { calculateFloor, calculatePaint, calculateWall, calculateDemolition, createObra } from "@/services/api"
 import { CalculationResult, isFloorResult, isPaintResult, isDemolitionResult } from "@/types/calculate"
 import Link from "next/link"
 import OrcamentoPDF from "@/components/OrcamentoPDF"
@@ -67,11 +68,15 @@ const fmt = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)
 
 export default function CalculateForm() {
+  const router = useRouter()
   const [environments, setEnvironments] = useState<EnvironmentItem[]>([newEnv("1")])
+  const [obraName, setObraName] = useState("")
   const [clientName, setClientName] = useState("")
   const [clientPhone, setClientPhone] = useState("")
   const [clientAddress, setClientAddress] = useState("")
   const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState("")
 
   const hasResults = environments.every((e) => e.result)
   const isMulti = environments.length > 1
@@ -151,6 +156,52 @@ export default function CalculateForm() {
     setLoading(false)
   }
 
+  async function handleSaveObra() {
+    const token = localStorage.getItem("obrapro_token")
+    if (!token) return
+
+    if (!obraName.trim()) {
+      setSaveError("Dá um nome à obra antes de guardar.")
+      return
+    }
+    if (!hasResults) {
+      setSaveError("Calcula todos os ambientes antes de guardar.")
+      return
+    }
+
+    setSaving(true)
+    setSaveError("")
+    try {
+      const stages = environments.map((env) => ({
+        service_type: env.serviceType,
+        environment: env.environment,
+        area: Number(env.area),
+        floor_type: env.floorType,
+        paint_type: env.paintType,
+        coats: env.coats,
+        demolition_type: env.demolitionType,
+        labor_cost: env.result!.labor_cost,
+        material_cost: (env.result as any).material_cost ?? 0,
+        total_cost: env.result!.total_cost,
+        estimated_days: env.result!.estimated_days,
+      }))
+
+      const obra = await createObra({
+        name: obraName.trim(),
+        client_name: clientName,
+        client_phone: clientPhone,
+        client_address: clientAddress,
+        stages,
+      }, token)
+
+      router.push(`/obra/${obra.id}`)
+    } catch (err: any) {
+      setSaveError(err?.message ?? "Erro ao guardar obra.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <>
     <div className="w-full max-w-2xl mx-auto font-body text-on-surface pb-32 print:hidden">
@@ -171,16 +222,33 @@ export default function CalculateForm() {
 
       <form onSubmit={handleCalculate} className="space-y-6">
 
-        {/* Dados do Cliente */}
+        {/* Nome da Obra + Dados do Cliente */}
         <div className="bg-surface-container-low rounded-2xl p-1 md:p-2 border border-outline-variant/10 shadow-sm">
           <div className="bg-surface-container-lowest rounded-xl p-6 md:p-8 space-y-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-secondary-container/20 rounded-lg text-secondary">
-                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
+              <div className="p-2 bg-primary-container/20 rounded-lg text-primary">
+                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>home_work</span>
               </div>
               <div>
+                <p className="text-sm font-bold text-on-surface">Identificação da Obra</p>
+                <p className="text-[11px] text-on-surface-variant mt-0.5">Dê um nome à obra para a acompanhar no dashboard</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-on-surface" htmlFor="obraName">
+                Nome da Obra <span className="text-error">*</span>
+              </label>
+              <input id="obraName" type="text" placeholder="Ex: Reforma Apartamento Centro" value={obraName}
+                onChange={(e) => setObraName(e.target.value)}
+                className="w-full bg-surface-container-lowest border-none ring-1 ring-outline-variant focus:ring-2 focus:ring-primary-container rounded-xl p-4 text-on-surface font-medium transition-all placeholder:text-outline-variant/60 outline-none" />
+            </div>
+
+            <div className="border-t border-outline-variant/20 pt-5">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="material-symbols-outlined text-on-surface-variant text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
                 <p className="text-sm font-bold text-on-surface">Dados do Cliente</p>
-                <p className="text-[11px] text-on-surface-variant mt-0.5">Opcional — aparece no PDF do orçamento</p>
+                <span className="text-[11px] text-on-surface-variant ml-1">— opcional</span>
               </div>
             </div>
 
@@ -450,7 +518,6 @@ export default function CalculateForm() {
           <span className="material-symbols-outlined text-primary-container mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>info</span>
           <p className="text-sm text-on-secondary-container leading-relaxed">
             Os valores utilizam a sua <Link href="/settings" className="underline font-bold">Tabela de Preços</Link>. Material inclui <strong>10% de margem de quebra</strong>.
-            {isMulti && <span className="block mt-1 text-on-surface-variant">Múltiplos ambientes não são salvos no Dashboard — use o PDF para guardar o orçamento.</span>}
           </p>
         </div>
 
@@ -464,6 +531,28 @@ export default function CalculateForm() {
         </button>
 
       </form>
+
+      {/* Botão Guardar Obra */}
+      {hasResults && (
+        <div className="mt-4 space-y-3">
+          {saveError && (
+            <div className="flex items-center gap-2 p-4 bg-error-container/20 text-error rounded-xl text-sm font-medium">
+              <span className="material-symbols-outlined text-[18px]">error</span>
+              {saveError}
+            </div>
+          )}
+          <button
+            onClick={handleSaveObra}
+            disabled={saving}
+            className="w-full bg-surface-container-highest border-2 border-primary text-primary py-4 rounded-xl font-headline font-bold text-lg hover:bg-primary hover:text-on-primary active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+          >
+            {saving
+              ? <><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div> A guardar...</>
+              : <><span className="material-symbols-outlined">save</span> Guardar Obra no Dashboard</>
+            }
+          </button>
+        </div>
+      )}
 
       {/* Resumo Total (múltiplos ambientes) */}
       {hasResults && (

@@ -45,6 +45,9 @@ func NewRouter() http.Handler {
 	wallHandler := handler.NewWallHandler(calcService)
 	demolitionHandler := handler.NewDemolitionHandler(calcService)
 
+	obraRepo := repository.NewObraRepository(db)
+	obraHandler := handler.NewObraHandler(obraRepo)
+
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware)
 		r.Post("/calculate/floor", calcHandler.CalculateFloor)
@@ -55,6 +58,13 @@ func NewRouter() http.Handler {
 
 		r.Get("/prices", priceHandler.GetPrices)
 		r.Put("/prices", priceHandler.UpdatePrices)
+
+		r.Post("/obras", obraHandler.Create)
+		r.Get("/obras", obraHandler.List)
+		r.Get("/obras/{id}", obraHandler.Get)
+		r.Put("/obras/{id}/status", obraHandler.UpdateStatus)
+		r.Put("/obras/{id}/stages/{stageId}/status", obraHandler.UpdateStageStatus)
+		r.Post("/obras/{id}/expenses", obraHandler.AddExpense)
 	})
 
 	return r

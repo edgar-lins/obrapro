@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { getProjects } from "@/services/api"
+import { getObras } from "@/services/api"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -20,7 +20,7 @@ export default function DashboardPage() {
 
     async function fetchProjects() {
       try {
-        const data = await getProjects(token as string)
+        const data = await getObras(token as string)
         setProjects(data || [])
       } catch (err: any) {
         setError("Erro ao carregar orçamentos.")
@@ -39,9 +39,29 @@ export default function DashboardPage() {
     router.push("/login")
   }
 
-  // Cálculos dinâmicos para os stats
-  const totalVolume = projects.reduce((acc, curr) => acc + Number(curr.labor_cost), 0)
-  const activeJobs = projects.length
+  const fmt = (v: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)
+
+  const statusLabel: Record<string, string> = {
+    orcado: "Orçado",
+    em_andamento: "Em Andamento",
+    concluido: "Concluído",
+  }
+  const statusColor: Record<string, string> = {
+    orcado: "bg-secondary-container/40 text-secondary",
+    em_andamento: "bg-primary-container/30 text-primary",
+    concluido: "bg-surface-container-highest text-on-surface-variant",
+  }
+  const serviceIcon: Record<string, string> = {
+    piso: "layers",
+    revestimento: "wall",
+    pintura: "format_paint",
+    demolicao: "construction",
+  }
+
+  const totalVolume = projects.reduce((acc: number, curr: any) => acc + Number(curr.total_cost), 0)
+  const activeJobs = projects.filter((p: any) => p.status === "em_andamento").length
+  const totalJobs = projects.length
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-surface">
@@ -96,18 +116,20 @@ export default function DashboardPage() {
             </div>
             <div>
               <div className="text-4xl font-headline font-extrabold text-on-surface">
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalVolume)}
+                {fmt(totalVolume)}
               </div>
-              <div className="text-primary-fixed-dim font-label text-xs mt-1 font-bold">Atualizado hoje</div>
+              <div className="text-primary-fixed-dim font-label text-xs mt-1 font-bold">em {totalJobs} {totalJobs === 1 ? "obra" : "obras"}</div>
             </div>
           </div>
           <div className="bg-surface-container rounded-3xl p-8 flex flex-col justify-center items-center text-center border border-outline-variant/10">
-            <div className="text-3xl font-headline font-bold text-on-surface">{activeJobs}</div>
-            <div className="text-on-surface-variant font-label text-xs uppercase tracking-wider mt-2">Obras Ativas</div>
+            <div className="text-3xl font-headline font-bold text-primary">{activeJobs}</div>
+            <div className="text-on-surface-variant font-label text-xs uppercase tracking-wider mt-2">Em Andamento</div>
           </div>
           <div className="bg-primary text-on-primary rounded-3xl p-8 flex flex-col justify-center items-center text-center shadow-lg shadow-primary/20">
-            <div className="text-3xl font-headline font-bold text-primary-fixed">98%</div>
-            <div className="text-on-primary/70 font-label text-xs uppercase tracking-wider mt-2">Precisão</div>
+            <div className="text-3xl font-headline font-bold text-primary-fixed">
+              {projects.filter((p: any) => p.status === "concluido").length}
+            </div>
+            <div className="text-on-primary/70 font-label text-xs uppercase tracking-wider mt-2">Concluídas</div>
           </div>
         </div>
 
@@ -135,52 +157,56 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => (
-              <div key={project.id} className="group bg-surface-container-lowest rounded-2xl p-6 hover:shadow-xl hover:shadow-on-surface/5 transition-all duration-300 relative overflow-hidden border border-outline-variant/20">
-                <div className="flex justify-between items-start mb-6">
-                  <div className="p-3 bg-surface-container-low rounded-xl group-hover:bg-primary-container group-hover:text-on-primary transition-colors">
-                    <span className="material-symbols-outlined">{project.floor_type === 'porcelanato' ? 'layers' : 'grid_on'}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="block text-on-surface-variant font-label text-[10px] uppercase tracking-tighter">Data de Criação</span>
-                    <span className="block font-medium text-xs text-on-surface">
-                      {new Date(project.created_at).toLocaleDateString("pt-PT", { month: 'short', day: 'numeric', year: 'numeric' })}
+            {projects.map((obra: any) => {
+              const primaryStage = obra.stages?.[0]
+              const icon = serviceIcon[primaryStage?.service_type] ?? "home_work"
+              const stagesCount = obra.stages?.length ?? 0
+              return (
+                <Link key={obra.id} href={`/obra/${obra.id}`}
+                  className="group bg-surface-container-lowest rounded-2xl p-6 hover:shadow-xl hover:shadow-on-surface/5 transition-all duration-300 border border-outline-variant/20 block">
+                  <div className="flex justify-between items-start mb-5">
+                    <div className="p-3 bg-surface-container-low rounded-xl group-hover:bg-primary-container/20 transition-colors">
+                      <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusColor[obra.status] ?? ""}`}>
+                      {statusLabel[obra.status] ?? obra.status}
                     </span>
                   </div>
-                </div>
-                
-                <div className="space-y-1 mb-8">
-                  <h3 className="font-headline text-lg font-extrabold text-on-surface capitalize">Piso {project.floor_type}</h3>
-                  <p className="text-on-surface-variant text-sm flex items-center gap-2 capitalize">
-                    <span className="material-symbols-outlined text-sm">location_on</span>
-                    {project.environment}
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 pt-6 border-t border-surface-variant">
-                  <div>
-                    <span className="block text-on-surface-variant font-label text-[10px] uppercase tracking-tighter mb-1">Área Total</span>
-                    <span className="text-on-surface font-semibold">{project.area} m²</span>
+
+                  <div className="space-y-1 mb-5">
+                    <h3 className="font-headline text-base font-extrabold text-on-surface leading-tight">{obra.name}</h3>
+                    {obra.client_name && (
+                      <p className="text-on-surface-variant text-xs flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs">person</span>
+                        {obra.client_name}
+                      </p>
+                    )}
+                    {stagesCount > 0 && (
+                      <p className="text-on-surface-variant text-xs flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs">list_alt</span>
+                        {stagesCount} {stagesCount === 1 ? "etapa" : "etapas"}
+                      </p>
+                    )}
                   </div>
-                  <div>
-                    <span className="block text-on-surface-variant font-label text-[10px] uppercase tracking-tighter mb-1">Custo Mão de Obra</span>
-                    <span className="text-primary-container font-extrabold text-lg">
-                      {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(project.labor_cost)}
-                    </span>
+
+                  <div className="grid grid-cols-2 gap-3 pt-4 border-t border-outline-variant/20">
+                    <div>
+                      <span className="block text-on-surface-variant font-label text-[10px] uppercase tracking-tighter mb-1">Custo Total</span>
+                      <span className="text-primary font-extrabold text-base">{fmt(obra.total_cost)}</span>
+                    </div>
+                    <div>
+                      <span className="block text-on-surface-variant font-label text-[10px] uppercase tracking-tighter mb-1">Prazo</span>
+                      <span className="text-on-surface font-semibold text-sm">{obra.estimated_days}d úteis</span>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="mt-6 flex justify-between items-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                  <button className="text-secondary font-label text-xs font-bold flex items-center gap-1">
-                    Ver Detalhes
+
+                  <div className="mt-4 flex items-center gap-1 text-secondary font-label text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                    Ver obra
                     <span className="material-symbols-outlined text-xs">arrow_forward</span>
-                  </button>
-                  <span className="px-3 py-1 bg-surface-dim text-on-surface-variant rounded-full text-[10px] font-bold uppercase tracking-widest">
-                    Salvo
-                  </span>
-                </div>
-              </div>
-            ))}
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         )}
       </main>
