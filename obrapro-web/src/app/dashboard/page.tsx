@@ -3,33 +3,46 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { getObras } from "@/services/api"
+import { TopAppBar } from "@/components/top-app-bar"
+import { BottomNavBar } from "@/components/bottom-nav-bar"
+import { StatusBadge } from "@/components/status-badge"
+import { Icon } from "@/components/icon"
+import { getObras, getBillingStatus } from "@/services/api"
+import { serviceIcons } from "@/lib/service-icons"
+import { cn } from "@/lib/utils"
 
 const FREE_LIMIT = 3
+
+const fmt = (v: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)
 
 export default function DashboardPage() {
   const router = useRouter()
   const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [plan, setPlan] = useState("free")
+  const [plan, setPlan] = useState<"free" | "pro">("free")
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
 
   useEffect(() => {
     const token = localStorage.getItem("obrapro_token")
-    if (!token) {
-      router.push("/login")
-      return
-    }
+    if (!token) { router.push("/login"); return }
 
-    const savedPlan = localStorage.getItem("obrapro_plan") ?? "free"
-    setPlan(savedPlan)
+    const cachedPlan = (localStorage.getItem("obrapro_plan") ?? "free") as "free" | "pro"
+    setPlan(cachedPlan)
 
-    async function fetchProjects() {
+    async function fetchData() {
       try {
-        const data = await getObras(token as string)
-        setProjects(data || [])
-      } catch (err: any) {
-        setError("Erro ao carregar orçamentos.")
+        const [obras, billing] = await Promise.allSettled([
+          getObras(token as string),
+          getBillingStatus(token as string),
+        ])
+        if (obras.status === "fulfilled") setProjects(obras.value || [])
+        if (billing.status === "fulfilled") {
+          const p = billing.value.plan as "free" | "pro"
+          setPlan(p)
+          localStorage.setItem("obrapro_plan", p)
+        }
+      } catch {
         localStorage.removeItem("obrapro_token")
         router.push("/login")
       } finally {
@@ -37,240 +50,215 @@ export default function DashboardPage() {
       }
     }
 
-    fetchProjects()
+    fetchData()
   }, [router])
-
-  function handleLogout() {
-    localStorage.removeItem("obrapro_token")
-    router.push("/login")
-  }
-
-  const fmt = (v: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)
-
-  const statusLabel: Record<string, string> = {
-    orcado: "Orçado",
-    em_andamento: "Em Andamento",
-    concluido: "Concluído",
-  }
-  const statusColor: Record<string, string> = {
-    orcado: "bg-secondary-container/40 text-secondary",
-    em_andamento: "bg-primary-container/30 text-primary",
-    concluido: "bg-surface-container-highest text-on-surface-variant",
-  }
-  const serviceIcon: Record<string, string> = {
-    piso: "layers",
-    revestimento: "wall",
-    pintura: "format_paint",
-    demolicao: "construction",
-  }
-
-  const totalVolume = projects.reduce((acc: number, curr: any) => acc + Number(curr.total_cost), 0)
-  const activeJobs = projects.filter((p: any) => p.status === "em_andamento").length
-  const totalJobs = projects.length
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-surface">
-      <div className="w-12 h-12 border-4 border-primary-container border-t-transparent rounded-full animate-spin"></div>
+      <div className="w-12 h-12 border-4 border-primary-container border-t-transparent rounded-full animate-spin" />
     </div>
   )
 
+  const totalVolume = projects.reduce((sum: number, p: any) => sum + Number(p.total_cost), 0)
+  const inProgress = projects.filter((p: any) => p.status === "em_andamento").length
+  const completed = projects.filter((p: any) => p.status === "concluido").length
+  const totalJobs = projects.length
+  const remainingProjects = FREE_LIMIT - totalJobs
+  const canCreateNew = plan === "pro" || totalJobs < FREE_LIMIT
+
   return (
-    <div className="bg-surface font-body text-on-surface selection:bg-primary-fixed-dim/30 min-h-screen pb-24 md:pb-0">
-      {/* TopAppBar */}
-      <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl shadow-sm md:shadow-none flex justify-between items-center px-6 py-4">
-        <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>architecture</span>
-          <span className="font-headline font-extrabold text-xl tracking-tight text-on-surface">ObraPro</span>
-        </div>
-        
-        <nav className="hidden md:flex items-center gap-8">
-          <Link className="font-headline font-bold text-lg tracking-tight text-primary" href="/dashboard">Projetos</Link>
-          <Link className="font-headline font-bold text-lg tracking-tight text-on-surface-variant hover:bg-surface-container-low transition-colors px-3 py-1 rounded-lg" href="/calculate">Calcular</Link>
-          <Link className="font-headline font-bold text-lg tracking-tight text-on-surface-variant hover:bg-surface-container-low transition-colors px-3 py-1 rounded-lg" href="/settings">Preços</Link>
-        </nav>
+    <div className="min-h-screen bg-surface pb-24 md:pb-8">
+      <TopAppBar showNav isLoggedIn plan={plan} />
 
-        <div className="flex items-center gap-4">
-          <button onClick={handleLogout} className="material-symbols-outlined text-on-surface-variant hover:text-error transition-colors" title="Sair">logout</button>
-          <Link href="/planos" className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${plan === "pro" ? "bg-primary text-on-primary" : "bg-surface-container-highest text-on-surface-variant hover:bg-primary-container/20 hover:text-primary"}`}>
-            <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
-            {plan === "pro" ? "Pro" : "Free"}
-          </Link>
-          <div className="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden flex items-center justify-center text-primary font-bold">
-            OP
+      <main className="pt-20 px-4 md:px-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-heading font-bold text-on-surface">Projetos Ativos</h1>
+            <p className="text-on-surface-variant mt-1">Gerencie suas obras e orçamentos</p>
           </div>
-        </div>
-      </header>
-
-      <main className="pt-24 md:pb-32 px-6 max-w-7xl mx-auto">
-        {/* Dashboard Welcome & Primary Action */}
-        <section className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
-          <div className="space-y-2">
-            <h1 className="font-headline text-on-surface text-4xl font-extrabold tracking-tight">Projetos Ativos</h1>
-            <p className="text-on-surface-variant font-body max-w-md">Estimativas de construção com precisão e acompanhamento financeiro para as suas obras.</p>
-          </div>
-          <Link href="/calculate" className="bg-primary-container text-on-primary hover:bg-primary transition-all px-8 py-4 rounded-xl flex items-center justify-center gap-3 shadow-lg shadow-primary-container/10 active:scale-95 w-full md:w-auto">
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
-            <span className="font-headline font-bold tracking-wide">Novo Orçamento</span>
+          <Link
+            href="/calculate"
+            className={cn(
+              "hidden md:inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-heading font-bold transition-all",
+              canCreateNew
+                ? "bg-gradient-to-r from-primary to-primary-container text-on-primary hover:opacity-90 active:scale-[0.98]"
+                : "bg-surface-container-high text-on-surface-variant cursor-not-allowed"
+            )}
+          >
+            <Icon name="add" size={20} />
+            Novo Orçamento
           </Link>
-        </section>
-
-        {error && <div className="mb-8 p-4 bg-error-container text-on-error-container rounded-lg font-medium">{error}</div>}
+        </div>
 
         {/* Freemium Banner */}
         {plan === "free" && (
-          <div className={`mb-8 rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border ${totalJobs >= FREE_LIMIT ? "bg-error-container/10 border-error/20" : "bg-primary-container/10 border-primary-container/20"}`}>
-            <div className="flex items-center gap-3">
-              <span className={`material-symbols-outlined ${totalJobs >= FREE_LIMIT ? "text-error" : "text-primary"}`} style={{ fontVariationSettings: "'FILL' 1" }}>
-                {totalJobs >= FREE_LIMIT ? "lock" : "workspace_premium"}
-              </span>
-              <div>
-                {totalJobs >= FREE_LIMIT ? (
-                  <>
-                    <p className="font-bold text-on-surface text-sm">Limite do plano gratuito atingido</p>
-                    <p className="text-xs text-on-surface-variant">Você usou as {FREE_LIMIT} obras do plano Free. Faça upgrade para continuar.</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-bold text-on-surface text-sm">Plano Gratuito — {FREE_LIMIT - totalJobs} {FREE_LIMIT - totalJobs === 1 ? "obra restante" : "obras restantes"}</p>
-                    <p className="text-xs text-on-surface-variant">Upgrade para o Pro e tenha obras ilimitadas.</p>
-                  </>
-                )}
-              </div>
+          <div className={cn(
+            "mb-6 p-4 rounded-2xl flex flex-col md:flex-row md:items-center gap-4",
+            remainingProjects > 0 ? "bg-secondary-container/20" : "bg-error-container"
+          )}>
+            <div className="flex items-center gap-3 flex-1">
+              <Icon
+                name={remainingProjects > 0 ? "info" : "warning"}
+                size={24}
+                className={remainingProjects > 0 ? "text-secondary" : "text-on-error-container"}
+              />
+              <p className={cn("font-heading font-medium", remainingProjects > 0 ? "text-secondary" : "text-on-error-container")}>
+                {remainingProjects > 0
+                  ? `Você ainda pode criar ${remainingProjects} obra${remainingProjects > 1 ? "s" : ""} no plano gratuito.`
+                  : "Você atingiu o limite de obras do plano gratuito."}
+              </p>
             </div>
-            <Link href="/planos"
-              className="shrink-0 px-5 py-2.5 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">
-              Ver Planos
+            <Link
+              href="/planos"
+              className={cn(
+                "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-heading font-semibold text-sm transition-colors",
+                remainingProjects > 0
+                  ? "bg-secondary text-on-primary hover:opacity-90"
+                  : "bg-error text-on-error hover:opacity-90"
+              )}
+            >
+              Ver Planos <Icon name="arrow_forward" size={16} />
             </Link>
           </div>
         )}
 
-        {/* Stats Bento Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-16">
-          <div className="md:col-span-2 bg-surface-container-low rounded-3xl p-8 flex flex-col justify-between h-48 border border-outline-variant/10">
-            <div className="flex justify-between items-start">
-              <span className="text-on-surface-variant font-label font-semibold uppercase tracking-widest text-[11px]">Volume Total</span>
-              <span className="material-symbols-outlined text-primary">trending_up</span>
-            </div>
-            <div>
-              <div className="text-4xl font-headline font-extrabold text-on-surface">
-                {fmt(totalVolume)}
+        {/* Stats Bento */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="col-span-2 bg-surface-container-low rounded-3xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-primary-fixed/20 flex items-center justify-center">
+                <Icon name="account_balance_wallet" size={20} className="text-primary" />
               </div>
-              <div className="text-primary-fixed-dim font-label text-xs mt-1 font-bold">em {totalJobs} {totalJobs === 1 ? "obra" : "obras"}</div>
+              <span className="text-on-surface-variant font-heading font-medium">Volume Total</span>
             </div>
+            <p className="text-3xl md:text-4xl font-heading font-bold text-on-surface">{fmt(totalVolume)}</p>
+            <p className="text-xs text-on-surface-variant mt-1">em {totalJobs} {totalJobs === 1 ? "obra" : "obras"}</p>
           </div>
-          <div className="bg-surface-container rounded-3xl p-8 flex flex-col justify-center items-center text-center border border-outline-variant/10">
-            <div className="text-3xl font-headline font-bold text-primary">{activeJobs}</div>
-            <div className="text-on-surface-variant font-label text-xs uppercase tracking-wider mt-2">Em Andamento</div>
-          </div>
-          <div className="bg-primary text-on-primary rounded-3xl p-8 flex flex-col justify-center items-center text-center shadow-lg shadow-primary/20">
-            <div className="text-3xl font-headline font-bold text-primary-fixed">
-              {projects.filter((p: any) => p.status === "concluido").length}
+          <div className="bg-surface-container-low rounded-3xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Icon name="pending" size={20} className="text-primary" />
+              <span className="text-on-surface-variant text-sm font-heading font-medium">Em Andamento</span>
             </div>
-            <div className="text-on-primary/70 font-label text-xs uppercase tracking-wider mt-2">Concluídas</div>
+            <p className="text-3xl font-heading font-bold text-on-surface">{inProgress}</p>
+          </div>
+          <div className="bg-primary rounded-3xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Icon name="check_circle" size={20} className="text-primary-fixed" />
+              <span className="text-primary-fixed/80 text-sm font-heading font-medium">Concluídas</span>
+            </div>
+            <p className="text-3xl font-heading font-bold text-primary-fixed">{completed}</p>
           </div>
         </div>
 
-        {/* Section Label */}
-        <div className="flex items-center gap-4 mb-8">
-          <h2 className="font-headline text-xl font-bold">Lista de Projetos</h2>
-          <div className="h-[1px] flex-grow bg-surface-variant/50"></div>
-          <div className="flex gap-2">
-            <button className="p-2 bg-surface-container-highest rounded-lg text-secondary"><span className="material-symbols-outlined text-[20px]">grid_view</span></button>
-            <button className="p-2 hover:bg-surface-container-low rounded-lg text-on-surface-variant transition-colors"><span className="material-symbols-outlined text-[20px]">list</span></button>
+        {/* Projects Section */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-heading font-bold text-on-surface">Lista de Projetos</h2>
+          <div className="hidden md:flex items-center gap-1 p-1 bg-surface-container rounded-xl">
+            {(["grid", "list"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  viewMode === mode
+                    ? "bg-surface-container-highest text-on-surface"
+                    : "text-on-surface-variant hover:text-on-surface"
+                )}
+              >
+                <Icon name={mode === "grid" ? "grid_view" : "view_list"} size={20} />
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Project Grid */}
         {projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center bg-surface-container-low/50 rounded-2xl p-12 border-2 border-dashed border-outline-variant/30">
-            <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mb-4">
-              <span className="material-symbols-outlined text-on-surface-variant/40 text-3xl">add_circle</span>
+          <div className="flex flex-col items-center justify-center gap-4 p-12 border-2 border-dashed border-outline-variant rounded-3xl text-on-surface-variant">
+            <Icon name="add_circle" size={48} />
+            <div className="text-center">
+              <p className="font-heading font-semibold text-lg mb-1">Nenhum orçamento ainda</p>
+              <p className="text-sm">Crie o seu primeiro orçamento agora.</p>
             </div>
-            <h3 className="font-headline font-bold text-lg mb-1">Nenhum orçamento</h3>
-            <p className="text-on-surface-variant font-medium text-sm text-center px-4 max-w-sm mb-6">Pronto para a próxima obra? Crie a sua primeira estimativa agora.</p>
-            <Link href="/calculate" className="bg-primary-container text-on-primary px-6 py-3 rounded-lg font-bold text-sm">
+            <Link href="/calculate" className="px-6 py-3 rounded-xl bg-primary-container text-on-primary font-heading font-bold text-sm">
               Começar Cálculo
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className={cn("grid gap-4", viewMode === "grid" ? "md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1")}>
             {projects.map((obra: any) => {
-              const primaryStage = obra.stages?.[0]
-              const icon = serviceIcon[primaryStage?.service_type] ?? "home_work"
-              const stagesCount = obra.stages?.length ?? 0
+              const mainService = obra.stages?.[0]?.service_type || "piso"
               return (
-                <Link key={obra.id} href={`/obra/${obra.id}`}
-                  className="group bg-surface-container-lowest rounded-2xl p-6 hover:shadow-xl hover:shadow-on-surface/5 transition-all duration-300 border border-outline-variant/20 block">
-                  <div className="flex justify-between items-start mb-5">
-                    <div className="p-3 bg-surface-container-low rounded-xl group-hover:bg-primary-container/20 transition-colors">
-                      <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+                <Link
+                  key={obra.id}
+                  href={`/obra/${obra.id}`}
+                  className="group bg-surface-container-lowest rounded-3xl p-5 hover:shadow-xl hover:shadow-on-surface/5 transition-all duration-300"
+                >
+                  <div className="flex items-start justify-between gap-4 mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-surface-container-high flex items-center justify-center">
+                        <Icon name={serviceIcons[mainService] ?? "home_work"} size={24} className="text-on-surface-variant" />
+                      </div>
+                      <div>
+                        <h3 className="font-heading font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-1">
+                          {obra.name}
+                        </h3>
+                        {obra.client_name && (
+                          <p className="text-sm text-on-surface-variant">{obra.client_name}</p>
+                        )}
+                      </div>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusColor[obra.status] ?? ""}`}>
-                      {statusLabel[obra.status] ?? obra.status}
-                    </span>
+                    <StatusBadge status={obra.status} />
                   </div>
 
-                  <div className="space-y-1 mb-5">
-                    <h3 className="font-headline text-base font-extrabold text-on-surface leading-tight">{obra.name}</h3>
-                    {obra.client_name && (
-                      <p className="text-on-surface-variant text-xs flex items-center gap-1">
-                        <span className="material-symbols-outlined text-xs">person</span>
-                        {obra.client_name}
-                      </p>
-                    )}
-                    {stagesCount > 0 && (
-                      <p className="text-on-surface-variant text-xs flex items-center gap-1">
-                        <span className="material-symbols-outlined text-xs">list_alt</span>
-                        {stagesCount} {stagesCount === 1 ? "etapa" : "etapas"}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 pt-4 border-t border-outline-variant/20">
-                    <div>
-                      <span className="block text-on-surface-variant font-label text-[10px] uppercase tracking-tighter mb-1">Custo Total</span>
-                      <span className="text-primary font-extrabold text-base">{fmt(obra.total_cost)}</span>
+                  {obra.stages?.length > 0 && (
+                    <div className="flex items-center gap-2 mb-4 text-sm text-on-surface-variant">
+                      <Icon name="checklist" size={16} />
+                      <span>{obra.stages.length} etapa{obra.stages.length !== 1 ? "s" : ""}</span>
                     </div>
-                    <div>
-                      <span className="block text-on-surface-variant font-label text-[10px] uppercase tracking-tighter mb-1">Prazo</span>
-                      <span className="text-on-surface font-semibold text-sm">{obra.estimated_days}d úteis</span>
+                  )}
+
+                  <div className="flex items-center justify-between pt-4 border-t border-outline-variant/30">
+                    <div className="flex items-center gap-2">
+                      <Icon name="payments" size={16} className="text-on-surface-variant" />
+                      <span className="font-heading font-bold text-on-surface">{fmt(Number(obra.total_cost))}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-on-surface-variant">
+                      <Icon name="schedule" size={16} />
+                      <span>{obra.estimated_days}d úteis</span>
                     </div>
                   </div>
 
-                  <div className="mt-4 flex items-center gap-1 text-secondary font-label text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                    Ver obra
-                    <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                  <div className="mt-4 flex items-center justify-end gap-1 text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-sm font-heading font-semibold">Ver obra</span>
+                    <Icon name="arrow_forward" size={16} />
                   </div>
                 </Link>
               )
             })}
+
+            {canCreateNew && (
+              <Link
+                href="/calculate"
+                className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-outline-variant rounded-3xl text-on-surface-variant hover:border-primary hover:text-primary transition-colors min-h-[200px]"
+              >
+                <Icon name="add_circle" size={48} />
+                <span className="font-heading font-semibold">Criar novo orçamento</span>
+              </Link>
+            )}
           </div>
         )}
       </main>
 
-      {/* BottomNavBar (Mobile) */}
-      <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pt-2 pb-6 bg-surface/90 backdrop-blur-lg rounded-t-2xl border-t border-surface-variant/30 shadow-[0_-4px_20px_rgba(13,28,46,0.06)] z-50 md:hidden">
-        <Link href="/dashboard" className="flex flex-col items-center justify-center text-primary bg-surface-container-highest rounded-xl px-4 py-1 active:scale-90 transition-transform">
-          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>folder_open</span>
-          <span className="font-headline text-[11px] font-semibold uppercase tracking-wider mt-1">Projetos</span>
+      {canCreateNew && (
+        <Link
+          href="/calculate"
+          className="md:hidden fixed bottom-24 right-6 w-14 h-14 rounded-2xl bg-primary-container flex items-center justify-center shadow-lg shadow-primary/30 active:scale-95 transition-transform z-40"
+        >
+          <Icon name="add" size={28} className="text-primary-fixed" />
         </Link>
-        <Link href="/calculate" className="flex flex-col items-center justify-center text-on-surface-variant opacity-70 hover:opacity-100 transition-opacity active:scale-90 transition-transform">
-          <span className="material-symbols-outlined">calculate</span>
-          <span className="font-headline text-[11px] font-semibold uppercase tracking-wider mt-1">Calcular</span>
-        </Link>
-        <Link href="/settings" className="flex flex-col items-center justify-center text-on-surface-variant opacity-70 hover:opacity-100 transition-opacity active:scale-90 transition-transform">
-          <span className="material-symbols-outlined">settings</span>
-          <span className="font-headline text-[11px] font-semibold uppercase tracking-wider mt-1">Preços</span>
-        </Link>
-      </nav>
+      )}
 
-      {/* Contextual FAB (Mobile) */}
-      <div className="fixed bottom-24 right-6 z-40 md:hidden">
-        <Link href="/calculate" className="w-16 h-16 bg-primary-container text-on-primary rounded-2xl shadow-xl shadow-primary-container/30 flex items-center justify-center active:scale-95 transition-transform">
-          <span className="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
-        </Link>
-      </div>
+      <BottomNavBar />
     </div>
   )
 }

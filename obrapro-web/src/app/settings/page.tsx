@@ -2,14 +2,71 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
+import { TopAppBar } from "@/components/top-app-bar"
+import { BottomNavBar } from "@/components/bottom-nav-bar"
+import { Icon } from "@/components/icon"
 import { getPrices, updatePrices } from "@/services/api"
+import { cn } from "@/lib/utils"
+
+function PriceField({ label, name, value, unit = "m²", onChange }: {
+  label: string
+  name: string
+  value: number
+  unit?: string
+  onChange: (name: string, value: number) => void
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-heading font-medium text-on-surface-variant">
+        {label} <span className="text-outline">/ {unit}</span>
+      </label>
+      <div className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-heading font-semibold">R$</span>
+        <input
+          name={name}
+          type="number"
+          min="0"
+          step="0.01"
+          value={value}
+          onChange={(e) => onChange(name, Number(e.target.value))}
+          className="w-full pl-12 pr-4 py-3.5 bg-surface-container rounded-xl text-on-surface font-heading font-semibold text-lg focus:outline-none focus:ring-2 focus:ring-secondary-container transition-all"
+          placeholder="0,00"
+        />
+      </div>
+    </div>
+  )
+}
+
+function SectionCard({ title, description, icon, iconBg, iconColor, children }: {
+  title: string
+  description: string
+  icon: string
+  iconBg: string
+  iconColor: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10">
+      <div className="flex items-center gap-4 mb-8">
+        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", iconBg)}>
+          <Icon name={icon} size={24} className={iconColor} filled />
+        </div>
+        <div>
+          <h3 className="font-heading font-bold text-xl text-on-surface">{title}</h3>
+          <p className="text-sm text-on-surface-variant font-medium">{description}</p>
+        </div>
+      </div>
+      {children}
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState({ type: "", text: "" })
+  const plan = (typeof window !== "undefined" ? localStorage.getItem("obrapro_plan") : "free") as "free" | "pro"
 
   const [prices, setPrices] = useState({
     porcelain_price: 100,
@@ -35,408 +92,147 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const token = localStorage.getItem("obrapro_token")
-    if (!token) {
-      router.push("/login")
-      return
-    }
+    if (!token) { router.push("/login"); return }
 
     async function fetchPrices() {
       try {
         const data = await getPrices(token as string)
-        if (data) {
-          setPrices({
-            porcelain_price: data.porcelain_price,
-            ceramic_price: data.ceramic_price,
-            vinyl_price: data.vinyl_price,
-            other_price: data.other_price,
-            porcelain_material_price: data.porcelain_material_price ?? 80,
-            ceramic_material_price: data.ceramic_material_price ?? 45,
-            vinyl_material_price: data.vinyl_material_price ?? 55,
-            other_material_price: data.other_material_price ?? 60,
-            acrylic_paint_price: data.acrylic_paint_price ?? 12,
-            latex_paint_price: data.latex_paint_price ?? 10,
-            enamel_paint_price: data.enamel_paint_price ?? 18,
-            paint_material_price: data.paint_material_price ?? 25,
-            massa_corrida_price: data.massa_corrida_price ?? 8,
-            fundo_price: data.fundo_price ?? 20,
-            wall_porcelain_price: data.wall_porcelain_price ?? 130,
-            wall_ceramic_price: data.wall_ceramic_price ?? 90,
-            wall_other_price: data.wall_other_price ?? 100,
-            demolition_manual_price: data.demolition_manual_price ?? 25,
-            demolition_mechanical_price: data.demolition_mechanical_price ?? 40,
-          })
-        }
-      } catch (err) {
-        setMessage({ type: "error", text: "Erro ao carregar os teus preços." })
+        if (data) setPrices((prev) => ({ ...prev, ...data }))
+      } catch {
+        setMessage({ type: "error", text: "Erro ao carregar os preços." })
       } finally {
         setLoading(false)
       }
     }
-
     fetchPrices()
   }, [router])
+
+  function handleChange(name: string, value: number) {
+    setPrices((prev) => ({ ...prev, [name]: value }))
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     setMessage({ type: "", text: "" })
-
     const token = localStorage.getItem("obrapro_token")
-
     try {
       await updatePrices(prices, token as string)
       setMessage({ type: "success", text: "Preços atualizados com sucesso!" })
-    } catch (err) {
+    } catch {
       setMessage({ type: "error", text: "Erro ao guardar as alterações." })
     } finally {
       setSaving(false)
     }
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const { name, value } = e.target
-    setPrices(prev => ({ ...prev, [name]: Number(value) }))
-  }
-
-  function handleDiscard() {
-    // Para descartar, recarregamos a página e voltamos a buscar os dados da API
-    window.location.reload()
-  }
-
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-surface">
-      <div className="w-12 h-12 border-4 border-primary-container border-t-transparent rounded-full animate-spin"></div>
+      <div className="w-12 h-12 border-4 border-primary-container border-t-transparent rounded-full animate-spin" />
     </div>
   )
 
   return (
-    <div className="bg-surface font-body text-on-surface min-h-screen pb-32 md:pb-0">
-      
-      {/* TopAppBar */}
-      <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl shadow-sm md:shadow-none flex justify-between items-center px-6 py-4">
-        <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>architecture</span>
-          <span className="font-headline font-extrabold text-xl tracking-tight text-on-surface">ObraPro</span>
-        </div>
-        
-        <nav className="hidden md:flex items-center gap-8">
-          <Link className="font-headline font-bold text-lg tracking-tight text-on-surface-variant hover:bg-surface-container-low transition-colors px-3 py-1 rounded-lg" href="/dashboard">Projetos</Link>
-          <Link className="font-headline font-bold text-lg tracking-tight text-on-surface-variant hover:bg-surface-container-low transition-colors px-3 py-1 rounded-lg" href="/calculate">Calcular</Link>
-          <Link className="font-headline font-bold text-lg tracking-tight text-primary px-3 py-1 rounded-lg" href="/settings">Preços</Link>
-        </nav>
+    <div className="bg-surface font-sans text-on-surface min-h-screen pb-32 md:pb-0">
+      <TopAppBar showNav isLoggedIn plan={plan} />
 
-        <div className="flex items-center gap-4">
-          <button onClick={() => {
-            localStorage.removeItem("obrapro_token")
-            router.push("/login")
-          }} className="material-symbols-outlined text-on-surface-variant hover:text-error transition-colors" title="Sair">logout</button>
-          <div className="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden flex items-center justify-center text-primary font-bold">
-            OP
-          </div>
-        </div>
-      </header>
-
-      <main className="pt-24 md:pb-32 px-6 max-w-5xl mx-auto">
-        <section className="mb-12">
-          <h2 className="font-headline font-extrabold text-4xl text-on-surface mb-2">Tabela de Preços</h2>
-          <p className="text-on-surface-variant font-body text-lg max-w-2xl">
-            Configure a sua base de valores cobrados por metro quadrado (m²). Estes valores serão utilizados por defeito nos próximos orçamentos.
+      <main className="pt-20 px-4 md:px-6 max-w-5xl mx-auto">
+        <section className="mb-10 pt-4">
+          <h1 className="font-heading font-extrabold text-3xl md:text-4xl text-on-surface mb-2">Tabela de Preços</h1>
+          <p className="text-on-surface-variant text-lg max-w-2xl">
+            Configure os valores cobrados por metro quadrado (m²). Serão usados por defeito nos próximos orçamentos.
           </p>
         </section>
 
         {message.text && (
-          <div className={`mb-8 p-4 rounded-xl flex items-center gap-3 font-medium ${message.type === 'error' ? 'bg-error-container text-on-error-container' : 'bg-primary-container/20 text-primary-container'}`}>
-            <span className="material-symbols-outlined">{message.type === 'error' ? 'error' : 'check_circle'}</span>
+          <div className={cn(
+            "mb-8 p-4 rounded-xl flex items-center gap-3 font-medium",
+            message.type === "error"
+              ? "bg-error-container text-on-error-container"
+              : "bg-primary-container/20 text-primary"
+          )}>
+            <Icon name={message.type === "error" ? "error" : "check_circle"} size={20} />
             {message.text}
           </div>
         )}
 
-        <form onSubmit={handleSave} className="space-y-8">
-          
-          {/* Card: Tipos de Piso */}
-          <div className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-12 h-12 rounded-xl bg-secondary-container flex items-center justify-center">
-                <span className="material-symbols-outlined text-on-secondary-container text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>layers</span>
-              </div>
-              <div>
-                <h3 className="font-headline font-bold text-xl text-on-surface">Revestimentos</h3>
-                <p className="text-sm text-on-surface-variant font-medium">Defina o valor da instalação por metro quadrado (R$/m²)</p>
-              </div>
+        <form onSubmit={handleSave} className="space-y-6">
+          <SectionCard title="Revestimentos" description="Instalação de piso por m²" icon="layers" iconBg="bg-secondary-container" iconColor="text-on-secondary-container">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <PriceField label="Porcelanato" name="porcelain_price" value={prices.porcelain_price} onChange={handleChange} />
+              <PriceField label="Cerâmica" name="ceramic_price" value={prices.ceramic_price} onChange={handleChange} />
+              <PriceField label="Vinílico" name="vinyl_price" value={prices.vinyl_price} onChange={handleChange} />
+              <PriceField label="Outros" name="other_price" value={prices.other_price} onChange={handleChange} />
             </div>
+          </SectionCard>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-on-surface-variant px-1" htmlFor="porcelain">Porcelanato R$/m²</label>
-                <div className="relative group">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
-                  <input 
-                    id="porcelain"
-                    name="porcelain_price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={prices.porcelain_price}
-                    onChange={handleChange}
-                    className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg placeholder:text-outline-variant outline-none" 
-                  />
-                </div>
-              </div>
+          <SectionCard title="Custo de Material" description="Preço de compra do material por m²" icon="storefront" iconBg="bg-primary-container/20" iconColor="text-primary">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <PriceField label="Porcelanato" name="porcelain_material_price" value={prices.porcelain_material_price} onChange={handleChange} />
+              <PriceField label="Cerâmica" name="ceramic_material_price" value={prices.ceramic_material_price} onChange={handleChange} />
+              <PriceField label="Vinílico" name="vinyl_material_price" value={prices.vinyl_material_price} onChange={handleChange} />
+              <PriceField label="Outros" name="other_material_price" value={prices.other_material_price} onChange={handleChange} />
+            </div>
+          </SectionCard>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-on-surface-variant px-1" htmlFor="ceramic">Cerâmica R$/m²</label>
-                <div className="relative group">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
-                  <input 
-                    id="ceramic"
-                    name="ceramic_price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={prices.ceramic_price}
-                    onChange={handleChange}
-                    className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg placeholder:text-outline-variant outline-none" 
-                  />
-                </div>
-              </div>
+          <SectionCard title="Mão de Obra — Pintura" description="Valor cobrado por m²" icon="format_paint" iconBg="bg-secondary-container/30" iconColor="text-secondary">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <PriceField label="Tinta Acrílica" name="acrylic_paint_price" value={prices.acrylic_paint_price} onChange={handleChange} />
+              <PriceField label="Tinta Látex" name="latex_paint_price" value={prices.latex_paint_price} onChange={handleChange} />
+              <PriceField label="Tinta Esmalte" name="enamel_paint_price" value={prices.enamel_paint_price} onChange={handleChange} />
+            </div>
+          </SectionCard>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-on-surface-variant px-1" htmlFor="vinyl">Vinílico R$/m²</label>
-                <div className="relative group">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
-                  <input 
-                    id="vinyl"
-                    name="vinyl_price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={prices.vinyl_price}
-                    onChange={handleChange}
-                    className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg placeholder:text-outline-variant outline-none" 
-                  />
-                </div>
-              </div>
+          <SectionCard title="Material — Pintura" description="Custo de compra dos materiais" icon="water_drop" iconBg="bg-primary-container/20" iconColor="text-primary">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <PriceField label="Tinta" name="paint_material_price" value={prices.paint_material_price} unit="litro" onChange={handleChange} />
+              <PriceField label="Massa Corrida" name="massa_corrida_price" value={prices.massa_corrida_price} unit="kg" onChange={handleChange} />
+              <PriceField label="Fundo Preparador" name="fundo_price" value={prices.fundo_price} unit="litro" onChange={handleChange} />
+            </div>
+          </SectionCard>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-on-surface-variant px-1" htmlFor="other">Outros R$/m²</label>
-                <div className="relative group">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
-                  <input 
-                    id="other"
-                    name="other_price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={prices.other_price}
-                    onChange={handleChange}
-                    className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg placeholder:text-outline-variant outline-none" 
-                  />
-                </div>
-              </div>
+          <SectionCard title="Mão de Obra — Revestimento de Parede" description="Valor cobrado por m²" icon="wall" iconBg="bg-secondary-container" iconColor="text-on-secondary-container">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <PriceField label="Porcelanato" name="wall_porcelain_price" value={prices.wall_porcelain_price} onChange={handleChange} />
+              <PriceField label="Cerâmica" name="wall_ceramic_price" value={prices.wall_ceramic_price} onChange={handleChange} />
+              <PriceField label="Outros" name="wall_other_price" value={prices.wall_other_price} onChange={handleChange} />
             </div>
-          </div>
+          </SectionCard>
 
-          {/* Card: Preços de Material */}
-          <div className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-12 h-12 rounded-xl bg-primary-container/20 flex items-center justify-center">
-                <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>storefront</span>
-              </div>
-              <div>
-                <h3 className="font-headline font-bold text-xl text-on-surface">Custo de Material</h3>
-                <p className="text-sm text-on-surface-variant font-medium">Preço de compra do material por metro quadrado (R$/m²)</p>
-              </div>
+          <SectionCard title="Demolição" description="Valor cobrado por m²" icon="construction" iconBg="bg-error-container/30" iconColor="text-error">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <PriceField label="Manual" name="demolition_manual_price" value={prices.demolition_manual_price} onChange={handleChange} />
+              <PriceField label="Mecânica" name="demolition_mechanical_price" value={prices.demolition_mechanical_price} onChange={handleChange} />
             </div>
+          </SectionCard>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-              {[
-                { label: "Porcelanato R$/m²", name: "porcelain_material_price" },
-                { label: "Cerâmica R$/m²", name: "ceramic_material_price" },
-                { label: "Vinílico R$/m²", name: "vinyl_material_price" },
-                { label: "Outros R$/m²", name: "other_material_price" },
-              ].map((field) => (
-                <div key={field.name} className="space-y-2">
-                  <label className="block text-sm font-semibold text-on-surface-variant px-1">{field.label}</label>
-                  <div className="relative group">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
-                    <input
-                      name={field.name}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={(prices as any)[field.name]}
-                      onChange={handleChange}
-                      className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-primary-container/50 transition-all text-on-surface font-semibold text-lg placeholder:text-outline-variant outline-none"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card: Mão de Obra — Pintura */}
-          <div className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-12 h-12 rounded-xl bg-secondary-container/30 flex items-center justify-center">
-                <span className="material-symbols-outlined text-secondary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>format_paint</span>
-              </div>
-              <div>
-                <h3 className="font-headline font-bold text-xl text-on-surface">Mão de Obra — Pintura</h3>
-                <p className="text-sm text-on-surface-variant font-medium">Valor cobrado por metro quadrado (R$/m²)</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
-              {[
-                { label: "Tinta Acrílica R$/m²", name: "acrylic_paint_price" },
-                { label: "Tinta Látex R$/m²", name: "latex_paint_price" },
-                { label: "Tinta Esmalte R$/m²", name: "enamel_paint_price" },
-              ].map((field) => (
-                <div key={field.name} className="space-y-2">
-                  <label className="block text-sm font-semibold text-on-surface-variant px-1">{field.label}</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
-                    <input name={field.name} type="number" min="0" step="0.01"
-                      value={(prices as any)[field.name]} onChange={handleChange}
-                      className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg outline-none" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card: Material — Pintura */}
-          <div className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-12 h-12 rounded-xl bg-primary-container/20 flex items-center justify-center">
-                <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>water_drop</span>
-              </div>
-              <div>
-                <h3 className="font-headline font-bold text-xl text-on-surface">Material — Pintura</h3>
-                <p className="text-sm text-on-surface-variant font-medium">Custo de compra dos materiais de pintura</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
-              {[
-                { label: "Tinta R$/litro", name: "paint_material_price" },
-                { label: "Massa Corrida R$/kg", name: "massa_corrida_price" },
-                { label: "Fundo Preparador R$/litro", name: "fundo_price" },
-              ].map((field) => (
-                <div key={field.name} className="space-y-2">
-                  <label className="block text-sm font-semibold text-on-surface-variant px-1">{field.label}</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
-                    <input name={field.name} type="number" min="0" step="0.01"
-                      value={(prices as any)[field.name]} onChange={handleChange}
-                      className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg outline-none" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card: Mão de Obra — Revestimento de Parede */}
-          <div className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-12 h-12 rounded-xl bg-secondary-container flex items-center justify-center">
-                <span className="material-symbols-outlined text-on-secondary-container text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>wall</span>
-              </div>
-              <div>
-                <h3 className="font-headline font-bold text-xl text-on-surface">Mão de Obra — Revestimento de Parede</h3>
-                <p className="text-sm text-on-surface-variant font-medium">Valor cobrado por metro quadrado (R$/m²)</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
-              {[
-                { label: "Porcelanato R$/m²", name: "wall_porcelain_price" },
-                { label: "Cerâmica R$/m²", name: "wall_ceramic_price" },
-                { label: "Outros R$/m²", name: "wall_other_price" },
-              ].map((field) => (
-                <div key={field.name} className="space-y-2">
-                  <label className="block text-sm font-semibold text-on-surface-variant px-1">{field.label}</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
-                    <input name={field.name} type="number" min="0" step="0.01"
-                      value={(prices as any)[field.name]} onChange={handleChange}
-                      className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-secondary-container transition-all text-on-surface font-semibold text-lg outline-none" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card: Demolição */}
-          <div className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-12 h-12 rounded-xl bg-error-container/30 flex items-center justify-center">
-                <span className="material-symbols-outlined text-error text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>construction</span>
-              </div>
-              <div>
-                <h3 className="font-headline font-bold text-xl text-on-surface">Demolição</h3>
-                <p className="text-sm text-on-surface-variant font-medium">Valor cobrado por metro quadrado (R$/m²)</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-              {[
-                { label: "Manual R$/m²", name: "demolition_manual_price" },
-                { label: "Mecânica R$/m²", name: "demolition_mechanical_price" },
-              ].map((field) => (
-                <div key={field.name} className="space-y-2">
-                  <label className="block text-sm font-semibold text-on-surface-variant px-1">{field.label}</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">R$</span>
-                    <input name={field.name} type="number" min="0" step="0.01"
-                      value={(prices as any)[field.name]} onChange={handleChange}
-                      className="w-full bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-error-container/50 transition-all text-on-surface font-semibold text-lg outline-none" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Action Bar (Save / Discard) */}
-          <div className="flex flex-col md:flex-row items-center justify-between pt-6 gap-6 pb-8 md:pb-0">
+          {/* Action Bar */}
+          <div className="flex flex-col md:flex-row items-center justify-between pt-4 gap-6 pb-8 md:pb-0">
             <div className="flex items-center gap-3 text-on-surface-variant bg-surface-container-highest/50 p-4 rounded-xl border border-outline-variant/10">
-              <span className="material-symbols-outlined text-primary-container" style={{ fontVariationSettings: "'FILL' 1" }}>info</span>
-              <p className="text-sm font-medium">As alterações apenas afetarão os novos cálculos. O histórico permanece intacto.</p>
+              <Icon name="info" size={20} className="text-primary-container" filled />
+              <p className="text-sm font-medium">As alterações apenas afetarão novos cálculos. O histórico permanece intacto.</p>
             </div>
-            
             <div className="flex items-center gap-4 w-full md:w-auto">
-              <button 
+              <button
                 type="button"
-                onClick={handleDiscard}
-                className="flex-1 md:flex-none px-8 py-4 rounded-xl font-headline font-bold text-secondary hover:bg-surface-container-high transition-colors"
+                onClick={() => window.location.reload()}
+                className="flex-1 md:flex-none px-8 py-4 rounded-xl font-heading font-bold text-secondary hover:bg-surface-container-high transition-colors"
               >
                 Descartar
               </button>
-              <button 
+              <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 md:flex-none px-10 py-4 rounded-xl font-headline font-bold text-on-primary bg-primary-container hover:bg-primary transition-all shadow-lg shadow-primary-container/20 disabled:opacity-50"
+                className="flex-1 md:flex-none px-10 py-4 rounded-xl font-heading font-bold text-on-primary bg-primary-container hover:bg-primary transition-all shadow-lg shadow-primary-container/20 disabled:opacity-50"
               >
                 {saving ? "A Guardar..." : "Guardar Preços"}
               </button>
             </div>
           </div>
-
         </form>
       </main>
 
-      {/* BottomNavBar (Mobile) */}
-      <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pt-2 pb-6 bg-surface/90 backdrop-blur-lg rounded-t-2xl border-t border-surface-variant/30 shadow-[0_-4px_20px_rgba(13,28,46,0.06)] z-50 md:hidden">
-        <Link href="/dashboard" className="flex flex-col items-center justify-center text-on-surface-variant opacity-70 hover:opacity-100 transition-opacity active:scale-90 transition-transform">
-          <span className="material-symbols-outlined">folder_open</span>
-          <span className="font-headline text-[11px] font-semibold uppercase tracking-wider mt-1">Projetos</span>
-        </Link>
-        <Link href="/calculate" className="flex flex-col items-center justify-center text-on-surface-variant opacity-70 hover:opacity-100 transition-opacity active:scale-90 transition-transform">
-          <span className="material-symbols-outlined">calculate</span>
-          <span className="font-headline text-[11px] font-semibold uppercase tracking-wider mt-1">Calcular</span>
-        </Link>
-        <Link href="/settings" className="flex flex-col items-center justify-center text-primary bg-surface-container-highest rounded-xl px-4 py-1 active:scale-90 transition-transform">
-          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>settings</span>
-          <span className="font-headline text-[11px] font-semibold uppercase tracking-wider mt-1">Preços</span>
-        </Link>
-      </nav>
-
+      <BottomNavBar />
     </div>
   )
 }

@@ -1,16 +1,15 @@
+import { TopAppBar } from "@/components/top-app-bar"
+import { BottomNavBar } from "@/components/bottom-nav-bar"
 import CalculateForm from "@/components/CalculateForm"
+
 export default function CalculatePage() {
-    return (
-        <main className="flex flex-col items-center justify-center min-h-screen">
-            {/* <h1 className="text-3xl font-bold">
-                Calculadora de piso
-            </h1> */}
-
-            <CalculateForm />
-
-            {/* <p className="mt-4 text-gray-600">
-                Em breve você poderá calcular sua obra aqui.
-            </p> */}
-        </main>
-    )
+  return (
+    <div className="min-h-screen bg-surface pb-24 md:pb-8">
+      <TopAppBar showBackButton backHref="/dashboard" title="Novo Orçamento" showNav isLoggedIn />
+      <main className="pt-20 px-4 md:px-6 max-w-3xl mx-auto">
+        <CalculateForm />
+      </main>
+      <BottomNavBar />
+    </div>
+  )
 }
